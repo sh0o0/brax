@@ -12,5 +12,6 @@ members = [
     "crates/gateway",
     "crates/infrastructure",
     "crates/utils",
+    "crates/view",
     # presenter
 ]
