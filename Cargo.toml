@@ -4,3 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+
+[workspace]
+members = [
+    "crates/domain",
+    "crates/usecase",
+    "crates/gateway",
+    "crates/infrastructure",
+    "crates/utils",
+    # presenter
+]

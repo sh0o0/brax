@@ -5,3 +5,23 @@ version = 3
 [[package]]
 name = "brax"
 version = "0.1.0"
+
+[[package]]
+name = "domain"
+version = "0.1.0"
+
+[[package]]
+name = "gateway"
+version = "0.1.0"
+
+[[package]]
+name = "infrastructure"
+version = "0.1.0"
+
+[[package]]
+name = "usecase"
+version = "0.1.0"
+
+[[package]]
+name = "utils"
+version = "0.1.0"
