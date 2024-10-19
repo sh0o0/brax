@@ -1,3 +1,5 @@
+use view;
+
 fn main() {
-    println!("Hello, world!");
+    view::run_new().unwrap();
 }
