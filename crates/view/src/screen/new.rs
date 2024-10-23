@@ -2,6 +2,7 @@
 enum SelectingField {
     None,
     Title,
+    Type,
     // Organization,
     // Skills,
     // Languages,
@@ -14,10 +15,23 @@ enum SelectingField {
     // Content,
 }
 
+const FIELDS: &[SelectingField] = &[SelectingField::Title, SelectingField::Type];
+
+#[derive(Debug, PartialEq, Eq)]
+enum Type {
+    Project,
+    CollaborationAndMembership,
+    DesignAndDocumentation,
+    CompanyBuilding,
+    Learning,
+    OutsideOfWork,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 
 struct Inputs {
     title: String,
+    typ: Type,
     // organization: String,
     // skills: Vec<String>,
     // languages: Vec<String>,
@@ -34,10 +48,10 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Layout},
+    layout::{Constraint, Flex, Layout, Rect},
     prelude::Backend,
     style::{Color, Style},
-    widgets::{block::title, Block, Paragraph},
+    widgets::{block::title, Block, Clear, Paragraph},
     Frame, Terminal,
 };
 
@@ -53,6 +67,7 @@ impl App {
             selecting_field: SelectingField::None,
             inputs: Inputs {
                 title: String::new(),
+                typ: Type::Project,
             },
             should_quit: false,
         }
@@ -66,13 +81,15 @@ impl App {
         match self.selecting_field {
             SelectingField::None => self.selecting_field = SelectingField::Title,
             SelectingField::Title => self.selecting_field = SelectingField::Title,
+            SelectingField::Type => self.selecting_field = SelectingField::Title,
         }
     }
 
     fn down(&mut self) {
         match self.selecting_field {
             SelectingField::None => self.selecting_field = SelectingField::Title,
-            SelectingField::Title => self.selecting_field = SelectingField::Title,
+            SelectingField::Title => self.selecting_field = SelectingField::Type,
+            SelectingField::Type => self.selecting_field = SelectingField::Type,
         }
     }
 
@@ -171,7 +188,8 @@ fn ui(frame: &mut Frame, app: &mut App) {
     //     4. url (option)
     //     5. position (option)
     // - content
-    let [title_area] = Layout::vertical([Constraint::Length(3)]).areas(frame.area());
+    let [title_area, typ_area] =
+        Layout::vertical([Constraint::Length(3), Constraint::Length(3)]).areas(frame.area());
 
     let title = Paragraph::new(app.inputs.title.as_str())
         .style(match app.selecting_field {
@@ -179,5 +197,35 @@ fn ui(frame: &mut Frame, app: &mut App) {
             _ => Style::default(),
         })
         .block(Block::bordered().title("Title"));
+    let typ = Paragraph::new(match app.inputs.typ {
+        Type::Project => "Project",
+        Type::CollaborationAndMembership => "Collaboration and Membership",
+        Type::DesignAndDocumentation => "Design and Documentation",
+        Type::CompanyBuilding => "Company Building",
+        Type::Learning => "Learning",
+        Type::OutsideOfWork => "Outside of Work",
+    })
+    .style(match app.selecting_field {
+        SelectingField::Type => Style::default().fg(Color::Yellow),
+        _ => Style::default(),
+    })
+    .block(Block::bordered().title("Type"));
+
     frame.render_widget(title, title_area);
+    frame.render_widget(typ, typ_area);
+
+    if app.selecting_field == SelectingField::Type {
+        let block = Block::bordered().title("Popup");
+        let area = popup_area(frame.area(), 60, 20);
+        frame.render_widget(Clear, area); //this clears out the background
+        frame.render_widget(block, area);
+    }
+}
+
+fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
+    let vertical = Layout::vertical([Constraint::Percentage(percent_y)]).flex(Flex::Center);
+    let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
+    let [area] = vertical.areas(area);
+    let [area] = horizontal.areas(area);
+    area
 }
