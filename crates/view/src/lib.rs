@@ -19,7 +19,7 @@ pub fn run_new() -> Result<(), Box<dyn core::error::Error>> {
 
     // create app and run it
     let mut app = screen::new::App::default();
-    screen::new::run(&mut terminal, &mut app, Duration::from_millis(250))?;
+    app.run(&mut terminal, Duration::from_millis(250))?;
 
     // restore terminal
     disable_raw_mode()?;
