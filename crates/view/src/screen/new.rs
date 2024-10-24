@@ -48,7 +48,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Flex, Layout, Rect},
+    layout::{Constraint, Flex, Layout, Position, Rect},
     prelude::Backend,
     style::{Color, Style},
     widgets::{block::title, Block, Clear, Paragraph},
@@ -59,6 +59,7 @@ pub struct App {
     selecting_field: SelectingField,
     inputs: Inputs,
     should_quit: bool,
+    cursor_pos: usize,
 }
 
 impl App {
@@ -70,7 +71,67 @@ impl App {
                 typ: Type::Project,
             },
             should_quit: false,
+            cursor_pos: 0,
         }
+    }
+
+    fn move_cursor_left(&mut self) {
+        let cursor_moved_left = self.cursor_pos.saturating_sub(1);
+        self.cursor_pos = self.clamp_cursor(cursor_moved_left);
+    }
+
+    fn move_cursor_right(&mut self) {
+        let cursor_moved_right = self.cursor_pos.saturating_add(1);
+        self.cursor_pos = self.clamp_cursor(cursor_moved_right);
+    }
+
+    fn enter_char(&mut self, new_char: char) {
+        let index = self.byte_index();
+        self.inputs.title.insert(index, new_char);
+        self.move_cursor_right();
+    }
+
+    /// Returns the byte index based on the character position.
+    ///
+    /// Since each character in a string can be contain multiple bytes, it's necessary to calculate
+    /// the byte index based on the index of the character.
+    fn byte_index(&self) -> usize {
+        self.inputs
+            .title
+            .char_indices()
+            .map(|(i, _)| i)
+            .nth(self.cursor_pos)
+            .unwrap_or(self.inputs.title.len())
+    }
+
+    fn delete_char(&mut self) {
+        let is_not_cursor_leftmost = self.cursor_pos != 0;
+        if is_not_cursor_leftmost {
+            // Method "remove" is not used on the saved text for deleting the selected char.
+            // Reason: Using remove on String works on bytes instead of the chars.
+            // Using remove would require special care because of char boundaries.
+
+            let current_index = self.cursor_pos;
+            let from_left_to_current_index = current_index - 1;
+
+            // Getting all characters before the selected character.
+            let before_char_to_delete = self.inputs.title.chars().take(from_left_to_current_index);
+            // Getting all characters after selected character.
+            let after_char_to_delete = self.inputs.title.chars().skip(current_index);
+
+            // Put all characters together except the selected one.
+            // By leaving the selected one out, it is forgotten and therefore deleted.
+            self.inputs.title = before_char_to_delete.chain(after_char_to_delete).collect();
+            self.move_cursor_left();
+        }
+    }
+
+    fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
+        new_cursor_pos.clamp(0, self.inputs.title.chars().count())
+    }
+
+    fn reset_cursor(&mut self) {
+        self.cursor_pos = 0;
     }
 
     fn unselect(&mut self) {
@@ -95,7 +156,7 @@ impl App {
 
     fn input(&mut self, c: char) {
         match self.selecting_field {
-            SelectingField::Title => self.inputs.title.push(c),
+            SelectingField::Title => self.enter_char(c),
             _ => {}
         }
     }
@@ -103,7 +164,7 @@ impl App {
     fn delete(&mut self) {
         match self.selecting_field {
             SelectingField::Title => {
-                self.inputs.title.pop();
+                self.delete_char();
             }
             _ => {}
         }
@@ -138,6 +199,7 @@ pub fn run<B: Backend>(
                     match key.code {
                         KeyCode::Char('p') => app.up(),
                         KeyCode::Char('n') => app.down(),
+                        KeyCode::Char('h') => app.delete(),
                         _ => {}
                     }
                     continue;
@@ -147,6 +209,8 @@ pub fn run<B: Backend>(
                     match key.code {
                         KeyCode::Up | KeyCode::Char('k') => app.up(),
                         KeyCode::Down | KeyCode::Char('j') => app.down(),
+                        KeyCode::Left => app.move_cursor_left(),
+                        KeyCode::Right => app.move_cursor_right(),
                         KeyCode::Char('q') => {
                             if app.can_quit() {
                                 app.quit()
@@ -197,6 +261,17 @@ fn ui(frame: &mut Frame, app: &mut App) {
             _ => Style::default(),
         })
         .block(Block::bordered().title("Title"));
+    if app.selecting_field == SelectingField::Title {
+        #[allow(clippy::cast_possible_truncation)]
+        frame.set_cursor_position(Position::new(
+            // Draw the cursor at the current position in the input field.
+            // This position is can be controlled via the left and right arrow key
+            title_area.x + app.cursor_pos as u16 + 1,
+            // Move one line down, from the border to the input line
+            title_area.y + 1,
+        ));
+    }
+
     let typ = Paragraph::new(match app.inputs.typ {
         Type::Project => "Project",
         Type::CollaborationAndMembership => "Collaboration and Membership",
