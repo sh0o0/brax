@@ -1,3 +1,4 @@
+mod base;
 mod screen;
 
 use std::{io::stdout, time::Duration};

@@ -16,25 +16,6 @@ enum SelectingField {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum Type {
-    Project,
-    CollaborationAndMembership,
-    DesignAndDocumentation,
-    CompanyBuilding,
-    Learning,
-    OutsideOfWork,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum Impact {
-    Trivial,
-    Ordinary,
-    Notable,
-    Remarkable,
-    Extraordinary,
-}
-
-#[derive(Debug, PartialEq, Eq)]
 
 struct Inputs {
     title: String,
@@ -55,14 +36,17 @@ struct Inputs {
 use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use domain::brag::{Impact, Type};
 use ratatui::{
     layout::{Constraint, Flex, Layout, Offset, Position, Rect},
     prelude::Backend,
     style::{Color, Style},
-    text::{self, Span},
+    text::{self, Span, Text},
     widgets::{block::title, Block, BorderType, Clear, List, ListItem, Paragraph},
     Frame, Terminal,
 };
+
+use crate::base::{block::AppBlock, frame::AppFrame, list::AppList, paragraph::AppParagraph};
 
 pub struct App {
     selecting_field: SelectingField,
@@ -245,23 +229,6 @@ impl App {
 }
 
 fn ui(frame: &mut Frame, app: &App) {
-    // let chunks = Layout::horizontal([Constraint::Fill(1)]).split(frame.area());
-
-    // let block = Block::bordered().title("Details");
-    // frame.render_widget(block, chunks[0]);
-
-    // UI
-    // - type: select (default: Project)
-    // - impact: select (default: Notable)
-    // - start date: input 2024, 2024-01, 2024-01-01 (default: this month)
-    // - end date: input (option)
-    // - Advance
-    //     1. organization (option)
-    //     2. skill (option)
-    //     3. languages (option)
-    //     4. url (option)
-    //     5. position (option)
-    // - content
     let [title_area, typ_area, impact_area] = Layout::vertical([
         Constraint::Length(3),
         Constraint::Length(3),
@@ -269,24 +236,15 @@ fn ui(frame: &mut Frame, app: &App) {
     ])
     .areas(frame.area());
 
-    let title = Paragraph::new(app.inputs.title.as_str())
-        .style(match app.selecting_field {
-            SelectingField::Title => Style::default().fg(Color::Yellow),
-            _ => Style::default(),
-        })
+    let title = Paragraph::app_default(app.inputs.title.as_str())
+        .selecting(app.selecting_field == SelectingField::Title)
         .block(Block::bordered().title("Title"));
+
     if app.selecting_field == SelectingField::Title {
-        #[allow(clippy::cast_possible_truncation)]
-        frame.set_cursor_position(Position::new(
-            // Draw the cursor at the current position in the input field.
-            // This position is can be controlled via the left and right arrow key
-            title_area.x + app.cursor_pos as u16 + 1,
-            // Move one line down, from the border to the input line
-            title_area.y + 1,
-        ));
+        frame.set_app_cursor(&title_area, app.cursor_pos as u16);
     }
 
-    let typ = Paragraph::new(match app.inputs.typ {
+    let typ = Paragraph::app_default(match app.inputs.typ {
         Type::Project => "Project",
         Type::CollaborationAndMembership => "Collaboration and Membership",
         Type::DesignAndDocumentation => "Design and Documentation",
@@ -294,11 +252,8 @@ fn ui(frame: &mut Frame, app: &App) {
         Type::Learning => "Learning",
         Type::OutsideOfWork => "Outside of Work",
     })
-    .style(match app.selecting_field {
-        SelectingField::Type => Style::default().fg(Color::Yellow),
-        _ => Style::default(),
-    })
-    .block(Block::bordered().title("Type"));
+    .selecting(app.selecting_field == SelectingField::Type)
+    .block(Block::app_default().title("Type"));
 
     let impact = Paragraph::new(match app.inputs.impact {
         Impact::Trivial => "Trivial",
@@ -324,23 +279,6 @@ fn ui(frame: &mut Frame, app: &App) {
 
         let block = Block::bordered().border_type(BorderType::Double);
 
-        //     let brags: Vec<ListItem> = app
-        //     .brags
-        //     .items
-        //     .iter()
-        //     .map(|&i| {
-        //         ListItem::new(vec![text::Line::from(Span::raw(format!(
-        //             "{} {}",
-        //             i.start_date.format("%Y-%m-%d").to_string(),
-        //             i.title.clone()
-        //         )))])
-        //     })
-        //     .collect();
-        // let tasks = List::new(brags)
-        //     .block(Block::bordered().title("Brags"))
-        //     .highlight_style(Style::default().add_modifier(Modifier::BOLD))
-        //     .highlight_symbol("> ");
-
         let type_items: Vec<ListItem> = [
             "Project",
             "Collaboration and Membership",
@@ -353,20 +291,9 @@ fn ui(frame: &mut Frame, app: &App) {
         .map(|&i| ListItem::new(vec![text::Line::from(Span::raw(i))]))
         .collect();
 
-        let types = List::new(type_items)
-            .block(block)
-            .highlight_style(Style::default().fg(Color::Yellow))
-            .highlight_symbol("> ");
+        let types = List::new(type_items).block(block).app_highlight();
 
         frame.render_widget(Clear, popup_area);
         frame.render_widget(types, popup_area);
     }
-}
-
-fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
-    let vertical = Layout::vertical([Constraint::Percentage(percent_y)]).flex(Flex::Center);
-    let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
-    let [area] = vertical.areas(area);
-    let [area] = horizontal.areas(area);
-    area
 }
