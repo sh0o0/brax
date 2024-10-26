@@ -27,7 +27,6 @@ dependencies = [
  "fern",
  "humantime",
  "log",
- "strum",
  "view",
 ]
 
@@ -95,6 +94,7 @@ dependencies = [
 name = "domain"
 version = "0.1.0"
 dependencies = [
+ "strum",
  "thiserror",
 ]
 

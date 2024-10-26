@@ -7,7 +7,7 @@ pub enum Impact {
     Extraordinary,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, strum::VariantArray)]
 pub enum Type {
     Project,
     CollaborationAndMembership,

@@ -1,5 +1,6 @@
 mod base;
 mod screen;
+mod utils;
 
 use std::{io::stdout, time::Duration};
 

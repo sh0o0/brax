@@ -7,7 +7,6 @@ edition = "2021"
 fern = "0.7.0"
 humantime = "2.1.0"
 log = { workspace = true }
-strum.workspace = true
 view = { path = "crates/view" }
 
 [workspace]
