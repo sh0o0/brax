@@ -197,22 +197,42 @@ struct State {
     should_quit: bool,
 }
 
-pub struct App {
-    selecting_field: Option<Field>,
-    inputs: Inputs,
-    should_quit: bool,
-}
-
-impl App {
-    pub fn default() -> Self {
+impl State {
+    fn empty() -> Self {
         Self {
             selecting_field: None,
             inputs: Inputs {
                 title: TextAreaState::empty(),
                 typ: Type::Project,
-                impact: Impact::Notable,
+                impact: Impact::Trivial,
             },
             should_quit: false,
+        }
+    }
+
+    fn unselect(&mut self) {
+        self.selecting_field = None;
+    }
+
+    fn can_quit(&self) -> bool {
+        self.selecting_field == None
+    }
+
+    fn quit(&mut self) {
+        if self.can_quit() {
+            self.should_quit = true;
+        }
+    }
+}
+
+pub struct App {
+    state: State,
+}
+
+impl App {
+    pub fn default() -> Self {
+        Self {
+            state: State::empty(),
         }
     }
 
@@ -247,13 +267,13 @@ impl App {
                             KeyCode::Left => self.on_left(),
                             KeyCode::Right => self.on_right(),
                             KeyCode::Char('q') => {
-                                if self.can_quit() {
-                                    self.quit()
+                                if self.state.can_quit() {
+                                    self.state.quit()
                                 } else {
                                     self.on_input('q');
                                 }
                             }
-                            KeyCode::Esc => self.unselect(),
+                            KeyCode::Esc => self.state.unselect(),
                             KeyCode::Delete | KeyCode::Backspace => self.on_delete(),
                             KeyCode::Char(c) => self.on_input(c),
                             _ => {}
@@ -263,67 +283,53 @@ impl App {
                 }
             }
 
-            if self.should_quit {
+            if self.state.should_quit {
                 return Ok(());
             }
         }
     }
 
-    fn unselect(&mut self) {
-        self.selecting_field = None;
-    }
-
     fn on_left(&mut self) {
-        match self.selecting_field {
-            Some(Field::Title) => self.inputs.title.move_cursor_left(),
+        match self.state.selecting_field {
+            Some(Field::Title) => self.state.inputs.title.move_cursor_left(),
             _ => {}
         }
     }
 
     fn on_right(&mut self) {
-        match self.selecting_field {
-            Some(Field::Title) => self.inputs.title.move_cursor_right(),
+        match self.state.selecting_field {
+            Some(Field::Title) => self.state.inputs.title.move_cursor_right(),
             _ => {}
         }
     }
 
     fn on_up(&mut self) {
-        match self.selecting_field.clone() {
-            None => self.selecting_field = Some(Field::VARIANTS.last().unwrap().clone()),
-            Some(field) => self.selecting_field = field.prev(),
+        match self.state.selecting_field.clone() {
+            None => self.state.selecting_field = Some(Field::VARIANTS.last().unwrap().clone()),
+            Some(field) => self.state.selecting_field = field.prev(),
         }
     }
 
     fn on_down(&mut self) {
-        match self.selecting_field.clone() {
-            None => self.selecting_field = Some(Field::VARIANTS.first().unwrap().clone()),
-            Some(field) => self.selecting_field = field.next(),
+        match self.state.selecting_field.clone() {
+            None => self.state.selecting_field = Some(Field::VARIANTS.first().unwrap().clone()),
+            Some(field) => self.state.selecting_field = field.next(),
         }
     }
 
     fn on_input(&mut self, c: char) {
-        match self.selecting_field {
-            Some(Field::Title) => self.inputs.title.enter_char(c),
+        match self.state.selecting_field {
+            Some(Field::Title) => self.state.inputs.title.enter_char(c),
             _ => {}
         }
     }
 
     fn on_delete(&mut self) {
-        match self.selecting_field {
+        match self.state.selecting_field {
             Some(Field::Title) => {
-                self.inputs.title.delete_char();
+                self.state.inputs.title.delete_char();
             }
             _ => {}
-        }
-    }
-
-    fn can_quit(&self) -> bool {
-        self.selecting_field == None
-    }
-
-    fn quit(&mut self) {
-        if self.can_quit() {
-            self.should_quit = true;
         }
     }
 }
@@ -336,27 +342,27 @@ fn ui(frame: &mut Frame, app: &App) {
     ])
     .areas(frame.area());
 
-    let title = Paragraph::app_default(app.inputs.title.text.as_str())
-        .selecting(app.selecting_field == Some(Field::Title))
+    let title = Paragraph::app_default(app.state.inputs.title.text.as_str())
+        .selecting(app.state.selecting_field == Some(Field::Title))
         .block(Block::bordered().title(Field::Title.text()));
 
-    if app.selecting_field == Some(Field::Title) {
-        frame.set_app_cursor(title_area, app.inputs.title.cursor_pos as u16);
+    if app.state.selecting_field == Some(Field::Title) {
+        frame.set_app_cursor(title_area, app.state.inputs.title.cursor_pos as u16);
     }
 
-    let typ = Paragraph::app_default(app.inputs.typ.text())
-        .selecting(app.selecting_field == Some(Field::Type))
+    let typ = Paragraph::app_default(app.state.inputs.typ.text())
+        .selecting(app.state.selecting_field == Some(Field::Type))
         .block(Block::app_default().title(Field::Type.text()));
 
-    let impact = Paragraph::app_default(app.inputs.impact.text())
-        .selecting(app.selecting_field == Some(Field::Impact))
+    let impact = Paragraph::app_default(app.state.inputs.impact.text())
+        .selecting(app.state.selecting_field == Some(Field::Impact))
         .block(Block::app_default().title(Field::Impact.text()));
 
     frame.render_widget(title, title_area);
     frame.render_widget(typ, typ_area);
     frame.render_widget(impact, impact_area);
 
-    if app.selecting_field == Some(Field::Type) {
+    if app.state.selecting_field == Some(Field::Type) {
         let typ_items = Type::VARIANTS
             .iter()
             .map(|t| ListItem::new(vec![text::Line::from(Span::raw(t.text()))]))
