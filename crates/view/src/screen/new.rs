@@ -1,6 +1,26 @@
-#[derive(Debug, PartialEq, Eq)]
-enum Fields {
-    None,
+use crate::base::{block::AppBlock, frame::AppFrame, list::AppList, paragraph::AppParagraph};
+
+use domain::brag::{Impact, Type};
+
+use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use ratatui::{
+    layout::{Constraint, Flex, Layout, Offset, Position, Rect},
+    prelude::Backend,
+    style::{Color, Style},
+    text::{self, Span, Text},
+    widgets::{block::title, Block, BorderType, Clear, List, ListItem, Paragraph, Widget},
+    Frame, Terminal,
+};
+use std::{
+    borrow::Borrow,
+    collections::LinkedList,
+    ops::Index,
+    time::{Duration, Instant},
+};
+use strum::{IntoEnumIterator, VariantArray};
+
+#[derive(Debug, PartialEq, Eq, Clone, strum::VariantArray)]
+enum Field {
     Title,
     Type,
     Impact,
@@ -15,8 +35,28 @@ enum Fields {
     // Content,
 }
 
-impl Fields {
-    const FIELDS: [Fields; 3] = [Fields::Title, Fields::Type, Fields::Impact];
+impl Field {
+    fn idx(self) -> usize {
+        Field::VARIANTS.iter().position(|f| *f == self).unwrap()
+    }
+
+    fn next(self) -> Option<Self> {
+        let index = self.idx();
+        if index == Field::VARIANTS.len() - 1 {
+            None
+        } else {
+            Some(Field::VARIANTS[index + 1].clone())
+        }
+    }
+
+    fn prev(self) -> Option<Self> {
+        let index = self.idx();
+        if index == 0 {
+            None
+        } else {
+            Some(Field::VARIANTS[index - 1].clone())
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -37,26 +77,8 @@ struct Inputs {
     // content: String,
 }
 
-use std::{
-    ops::Index,
-    time::{Duration, Instant},
-};
-
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use domain::brag::{Impact, Type};
-use ratatui::{
-    layout::{Constraint, Flex, Layout, Offset, Position, Rect},
-    prelude::Backend,
-    style::{Color, Style},
-    text::{self, Span, Text},
-    widgets::{block::title, Block, BorderType, Clear, List, ListItem, Paragraph, Widget},
-    Frame, Terminal,
-};
-
-use crate::base::{block::AppBlock, frame::AppFrame, list::AppList, paragraph::AppParagraph};
-
 pub struct App {
-    selecting_field: Fields,
+    selecting_field: Option<Field>,
     inputs: Inputs,
     should_quit: bool,
     cursor_pos: usize,
@@ -65,7 +87,7 @@ pub struct App {
 impl App {
     pub fn default() -> Self {
         Self {
-            selecting_field: Fields::None,
+            selecting_field: None,
             inputs: Inputs {
                 title: String::new(),
                 typ: Type::Project,
@@ -189,37 +211,33 @@ impl App {
     }
 
     fn unselect(&mut self) {
-        self.selecting_field = Fields::None;
+        self.selecting_field = None;
     }
 
     fn up(&mut self) {
-        match self.selecting_field {
-            Fields::None => self.selecting_field = Fields::Title,
-            Fields::Title => self.selecting_field = Fields::Title,
-            Fields::Type => self.selecting_field = Fields::Title,
-            Fields::Impact => self.selecting_field = Fields::Type,
+        match self.selecting_field.clone() {
+            None => self.selecting_field = Some(Field::VARIANTS.last().unwrap().clone()),
+            Some(field) => self.selecting_field = field.prev(),
         }
     }
 
     fn down(&mut self) {
-        match self.selecting_field {
-            Fields::None => self.selecting_field = Fields::Title,
-            Fields::Title => self.selecting_field = Fields::Type,
-            Fields::Type => self.selecting_field = Fields::Type,
-            Fields::Impact => self.selecting_field = Fields::Impact,
+        match self.selecting_field.clone() {
+            None => self.selecting_field = Some(Field::VARIANTS.first().unwrap().clone()),
+            Some(field) => self.selecting_field = field.next(),
         }
     }
 
     fn input(&mut self, c: char) {
         match self.selecting_field {
-            Fields::Title => self.enter_char(c),
+            Some(Field::Title) => self.enter_char(c),
             _ => {}
         }
     }
 
     fn delete(&mut self) {
         match self.selecting_field {
-            Fields::Title => {
+            Some(Field::Title) => {
                 self.delete_char();
             }
             _ => {}
@@ -227,7 +245,7 @@ impl App {
     }
 
     fn can_quit(&self) -> bool {
-        self.selecting_field == Fields::None
+        self.selecting_field == None
     }
 
     fn quit(&mut self) {
@@ -246,10 +264,10 @@ fn ui(frame: &mut Frame, app: &App) {
     .areas(frame.area());
 
     let title = Paragraph::app_default(app.inputs.title.as_str())
-        .selecting(app.selecting_field == Fields::Title)
+        .selecting(app.selecting_field == Some(Field::Title))
         .block(Block::bordered().title("Title"));
 
-    if app.selecting_field == Fields::Title {
+    if app.selecting_field == Some(Field::Title) {
         frame.set_app_cursor(title_area, app.cursor_pos as u16);
     }
 
@@ -261,7 +279,7 @@ fn ui(frame: &mut Frame, app: &App) {
         Type::Learning => "Learning",
         Type::OutsideOfWork => "Outside of Work",
     })
-    .selecting(app.selecting_field == Fields::Type)
+    .selecting(app.selecting_field == Some(Field::Type))
     .block(Block::app_default().title("Type"));
 
     let impact = Paragraph::app_default(match app.inputs.impact {
@@ -271,14 +289,14 @@ fn ui(frame: &mut Frame, app: &App) {
         Impact::Remarkable => "Remarkable",
         Impact::Extraordinary => "Extraordinary",
     })
-    .selecting(app.selecting_field == Fields::Impact)
+    .selecting(app.selecting_field == Some(Field::Impact))
     .block(Block::app_default().title("Impact"));
 
     frame.render_widget(title, title_area);
     frame.render_widget(typ, typ_area);
     frame.render_widget(impact, impact_area);
 
-    if app.selecting_field == Fields::Type {
+    if app.selecting_field == Some(Field::Type) {
         let block = Block::bordered().border_type(BorderType::Double);
         let type_items: Vec<ListItem> = [
             "Project",

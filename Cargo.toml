@@ -6,7 +6,8 @@ edition = "2021"
 [dependencies]
 fern = "0.7.0"
 humantime = "2.1.0"
-log = "0.4.22"
+log = { workspace = true }
+strum.workspace = true
 view = { path = "crates/view" }
 
 [workspace]
@@ -22,3 +23,4 @@ members = [
 
 [workspace.dependencies]
 log = "0.4.22"
+strum = "0.26.3"

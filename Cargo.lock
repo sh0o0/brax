@@ -27,6 +27,7 @@ dependencies = [
  "fern",
  "humantime",
  "log",
+ "strum",
  "view",
 ]
 
@@ -494,6 +495,7 @@ dependencies = [
  "domain",
  "log",
  "ratatui",
+ "strum",
 ]
 
 [[package]]
