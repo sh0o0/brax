@@ -5,7 +5,6 @@ use ratatui::{
 };
 
 pub trait AppFrame {
-    fn set_app_cursor(&mut self, area: Rect, pos: u16);
     fn render_popup<W: Widget>(&mut self, widget: W, area: Rect);
     fn render_popup_below_anchor<W: Widget>(
         &mut self,
@@ -14,14 +13,10 @@ pub trait AppFrame {
         max_width: Option<u16>,
         max_height: Option<u16>,
     );
+    fn set_app_cursor_position(&mut self, p: Position);
 }
 
 impl<'a> AppFrame for Frame<'a> {
-    fn set_app_cursor(&mut self, area: Rect, pos: u16) {
-        #[allow(clippy::cast_possible_truncation)]
-        self.set_cursor_position(Position::new(area.x + pos + 1, area.y + 1));
-    }
-
     fn render_popup<W: Widget>(&mut self, widget: W, area: Rect) {
         self.render_widget(Clear, area);
         self.render_widget(widget, area);
@@ -43,5 +38,9 @@ impl<'a> AppFrame for Frame<'a> {
         };
         let intersection = popup_area.intersection(self.area());
         self.render_popup(popup, intersection);
+    }
+
+    fn set_app_cursor_position(&mut self, position: Position) {
+        self.set_cursor_position(position);
     }
 }

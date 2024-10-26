@@ -484,7 +484,7 @@ name = "usecase"
 version = "0.1.0"
 
 [[package]]
-name = "utils"
+name = "util"
 version = "0.1.0"
 
 [[package]]
@@ -496,6 +496,7 @@ dependencies = [
  "log",
  "ratatui",
  "strum",
+ "util",
 ]
 
 [[package]]

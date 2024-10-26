@@ -15,9 +15,8 @@ members = [
     "crates/usecase",
     "crates/gateway",
     "crates/infrastructure",
-    "crates/utils",
+    "crates/util",
     "crates/view",
-    # presenter
 ]
 
 [workspace.dependencies]

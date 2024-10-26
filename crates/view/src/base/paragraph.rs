@@ -1,5 +1,5 @@
 use ratatui::{
-    style::{Color, Style},
+    style::{Color, Style, Stylize},
     text::Text,
     widgets::Paragraph,
 };
@@ -22,9 +22,9 @@ impl<'a> AppParagraph<'a> for Paragraph<'a> {
 
     fn selecting(self, is_selecting: bool) -> Self {
         if is_selecting {
-            self.style(Style::default().fg(Color::Yellow))
+            self.style(Style::default().bold())
         } else {
-            self.style(Style::default())
+            self.style(Style::default().fg(Color::DarkGray))
         }
     }
 }

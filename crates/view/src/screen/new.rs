@@ -1,5 +1,6 @@
 use crate::{
     base::{block::AppBlock, frame::AppFrame, list::AppList, paragraph::AppParagraph},
+    case::text_field::{TextField, TextFieldController},
     utils::{self, text::Txt},
 };
 
@@ -7,10 +8,10 @@ use domain::brag::{Impact, Type};
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Layout},
+    layout::{Constraint, Layout, Position},
     prelude::Backend,
     text::{self, Span},
-    widgets::{Block, BorderType, List, ListItem, Paragraph},
+    widgets::{Block, List, ListItem, Paragraph},
     Frame, Terminal,
 };
 use std::time::{Duration, Instant};
@@ -103,7 +104,7 @@ impl utils::text::Txt for Type {
 #[derive(Debug)]
 
 struct Inputs {
-    title: TextAreaState,
+    title: TextFieldController,
     typ: Type,
     impact: Impact,
     // organization: String,
@@ -118,79 +119,6 @@ struct Inputs {
     // content: String,
 }
 
-#[derive(Debug)]
-struct TextAreaState {
-    text: String,
-    cursor_pos: usize,
-}
-
-impl TextAreaState {
-    fn empty() -> Self {
-        Self {
-            text: String::new(),
-            cursor_pos: 0,
-        }
-    }
-
-    fn move_cursor_left(&mut self) {
-        let cursor_moved_left = self.cursor_pos.saturating_sub(1);
-        self.cursor_pos = self.clamp_cursor(cursor_moved_left);
-    }
-
-    fn move_cursor_right(&mut self) {
-        let cursor_moved_right = self.cursor_pos.saturating_add(1);
-        self.cursor_pos = self.clamp_cursor(cursor_moved_right);
-    }
-
-    fn enter_char(&mut self, new_char: char) {
-        let index = self.byte_index();
-        self.text.insert(index, new_char);
-        self.move_cursor_right();
-    }
-
-    /// Returns the byte index based on the character position.
-    ///
-    /// Since each character in a string can be contain multiple bytes, it's necessary to calculate
-    /// the byte index based on the index of the character.
-    fn byte_index(&self) -> usize {
-        self.text
-            .char_indices()
-            .map(|(i, _)| i)
-            .nth(self.cursor_pos)
-            .unwrap_or(self.text.len())
-    }
-
-    fn delete_char(&mut self) {
-        let is_not_cursor_leftmost = self.cursor_pos != 0;
-        if is_not_cursor_leftmost {
-            // Method "remove" is not used on the saved text for deleting the selected char.
-            // Reason: Using remove on String works on bytes instead of the chars.
-            // Using remove would require special care because of char boundaries.
-
-            let current_index = self.cursor_pos;
-            let from_left_to_current_index = current_index - 1;
-
-            // Getting all characters before the selected character.
-            let before_char_to_delete = self.text.chars().take(from_left_to_current_index);
-            // Getting all characters after selected character.
-            let after_char_to_delete = self.text.chars().skip(current_index);
-
-            // Put all characters together except the selected one.
-            // By leaving the selected one out, it is forgotten and therefore deleted.
-            self.text = before_char_to_delete.chain(after_char_to_delete).collect();
-            self.move_cursor_left();
-        }
-    }
-
-    fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
-        new_cursor_pos.clamp(0, self.text.chars().count())
-    }
-
-    fn reset_cursor(&mut self) {
-        self.cursor_pos = 0;
-    }
-}
-
 struct State {
     selecting_field: Option<Field>,
     inputs: Inputs,
@@ -202,7 +130,7 @@ impl State {
         Self {
             selecting_field: None,
             inputs: Inputs {
-                title: TextAreaState::empty(),
+                title: TextFieldController::default(),
                 typ: Type::Project,
                 impact: Impact::Trivial,
             },
@@ -240,53 +168,58 @@ impl App {
         &mut self,
         terminal: &mut Terminal<B>,
         tick_rate: Duration,
-    ) -> Result<(), Box<dyn core::error::Error>> {
+    ) -> util::error::Result<()> {
         let last_tick = Instant::now();
+        let screen = Screen::new();
 
-        loop {
-            terminal.draw(|frame| ui(frame, self))?;
-
+        while !self.state.should_quit {
+            terminal.draw(|frame| screen.render(frame, self))?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
+            self.handle_event(timeout)?;
+        }
 
-            if event::poll(timeout)? {
-                if let Event::Key(key) = event::read()? {
-                    if key.modifiers == event::KeyModifiers::CONTROL {
-                        match key.code {
-                            KeyCode::Char('p') => self.on_up(),
-                            KeyCode::Char('n') => self.on_down(),
-                            KeyCode::Char('h') => self.on_delete(),
-                            _ => {}
-                        }
-                        continue;
-                    }
+        Ok(())
+    }
 
-                    if key.kind == KeyEventKind::Press {
-                        match key.code {
-                            KeyCode::Up | KeyCode::Char('k') => self.on_up(),
-                            KeyCode::Down | KeyCode::Char('j') => self.on_down(),
-                            KeyCode::Left => self.on_left(),
-                            KeyCode::Right => self.on_right(),
-                            KeyCode::Char('q') => {
-                                if self.state.can_quit() {
-                                    self.state.quit()
-                                } else {
-                                    self.on_input('q');
-                                }
-                            }
-                            KeyCode::Esc => self.state.unselect(),
-                            KeyCode::Delete | KeyCode::Backspace => self.on_delete(),
-                            KeyCode::Char(c) => self.on_input(c),
-                            _ => {}
-                        }
-                        continue;
-                    }
+    fn handle_event(&mut self, timeout: Duration) -> util::error::Result<()> {
+        if !event::poll(timeout)? {
+            return Ok(());
+        }
+
+        if let Event::Key(key) = event::read()? {
+            if key.modifiers == event::KeyModifiers::CONTROL {
+                match key.code {
+                    KeyCode::Char('p') => self.on_up(),
+                    KeyCode::Char('n') => self.on_down(),
+                    KeyCode::Char('h') => self.on_delete(),
+                    _ => {}
                 }
+                return Ok(());
             }
 
-            if self.state.should_quit {
+            if key.kind == KeyEventKind::Press {
+                match key.code {
+                    KeyCode::Up | KeyCode::Char('k') => self.on_up(),
+                    KeyCode::Down | KeyCode::Char('j') => self.on_down(),
+                    KeyCode::Left => self.on_left(),
+                    KeyCode::Right => self.on_right(),
+                    KeyCode::Char('q') => {
+                        if self.state.can_quit() {
+                            self.state.quit()
+                        } else {
+                            self.on_input('q');
+                        }
+                    }
+                    KeyCode::Esc => self.state.unselect(),
+                    KeyCode::Delete | KeyCode::Backspace => self.on_delete(),
+                    KeyCode::Char(c) => self.on_input(c),
+                    _ => {}
+                }
                 return Ok(());
             }
         }
+
+        Ok(())
     }
 
     fn on_left(&mut self) {
@@ -334,41 +267,52 @@ impl App {
     }
 }
 
-fn ui(frame: &mut Frame, app: &App) {
-    let [title_area, typ_area, impact_area] = Layout::vertical([
-        Constraint::Length(3),
-        Constraint::Length(3),
-        Constraint::Length(3),
-    ])
-    .areas(frame.area());
+struct Screen {}
 
-    let title = Paragraph::app_default(app.state.inputs.title.text.as_str())
-        .selecting(app.state.selecting_field == Some(Field::Title))
-        .block(Block::bordered().title(Field::Title.text()));
-
-    if app.state.selecting_field == Some(Field::Title) {
-        frame.set_app_cursor(title_area, app.state.inputs.title.cursor_pos as u16);
+impl Screen {
+    pub fn new() -> Self {
+        Self {}
     }
 
-    let typ = Paragraph::app_default(app.state.inputs.typ.text())
-        .selecting(app.state.selecting_field == Some(Field::Type))
-        .block(Block::app_default().title(Field::Type.text()));
+    fn render(&self, frame: &mut Frame, app: &App) {
+        let [title_area, typ_area, impact_area] = Layout::vertical([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(3),
+        ])
+        .areas(frame.area());
 
-    let impact = Paragraph::app_default(app.state.inputs.impact.text())
-        .selecting(app.state.selecting_field == Some(Field::Impact))
-        .block(Block::app_default().title(Field::Impact.text()));
+        let title = Paragraph::app_default(app.state.inputs.title.text())
+            .selecting(app.state.selecting_field == Some(Field::Title))
+            .block(Block::bordered().title(Field::Title.text()));
+        let title =
+            TextField::new(&app.state.inputs.title).cursor(|pos| frame.set_cursor_position(pos));
 
-    frame.render_widget(title, title_area);
-    frame.render_widget(typ, typ_area);
-    frame.render_widget(impact, impact_area);
+        // if app.state.selecting_field == Some(Field::Title) {
+        //     let text_field = TextField::new(&app.state.inputs.title)
+        //         .cursor(|pos| frame.set_cursor_position(pos));
+        // }
 
-    if app.state.selecting_field == Some(Field::Type) {
-        let typ_items = Type::VARIANTS
-            .iter()
-            .map(|t| ListItem::new(vec![text::Line::from(Span::raw(t.text()))]))
-            .collect::<Vec<_>>();
-        let types = List::new(typ_items).block(Block::popup()).app_highlight();
+        let typ = Paragraph::app_default(app.state.inputs.typ.text())
+            .selecting(app.state.selecting_field == Some(Field::Type))
+            .block(Block::app_default().title(Field::Type.text()));
 
-        frame.render_popup_below_anchor(types, typ_area, None, Some(8));
+        let impact = Paragraph::app_default(app.state.inputs.impact.text())
+            .selecting(app.state.selecting_field == Some(Field::Impact))
+            .block(Block::app_default().title(Field::Impact.text()));
+
+        frame.render_widget(title, title_area);
+        frame.render_widget(typ, typ_area);
+        frame.render_widget(impact, impact_area);
+
+        if app.state.selecting_field == Some(Field::Type) {
+            let typ_items = Type::VARIANTS
+                .iter()
+                .map(|t| ListItem::new(vec![text::Line::from(Span::raw(t.text()))]))
+                .collect::<Vec<_>>();
+            let types = List::new(typ_items).block(Block::popup()).app_highlight();
+
+            frame.render_popup_below_anchor(types, typ_area, None, Some(8));
+        }
     }
 }
