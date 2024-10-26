@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+fern = "0.7.0"
+humantime = "2.1.0"
+log = "0.4.22"
 view = { path = "crates/view" }
 
 [workspace]
@@ -16,3 +19,6 @@ members = [
     "crates/view",
     # presenter
 ]
+
+[workspace.dependencies]
+log = "0.4.22"

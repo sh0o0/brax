@@ -1,9 +1,9 @@
 #[derive(Debug, PartialEq, Eq)]
-enum SelectingField {
+enum Fields {
     None,
     Title,
     Type,
-    // Impact,
+    Impact,
     // Organization,
     // Skills,
     // Languages,
@@ -13,6 +13,10 @@ enum SelectingField {
     // Url,
     // Position,
     // Content,
+}
+
+impl Fields {
+    const FIELDS: [Fields; 3] = [Fields::Title, Fields::Type, Fields::Impact];
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -33,7 +37,10 @@ struct Inputs {
     // content: String,
 }
 
-use std::time::{Duration, Instant};
+use std::{
+    ops::Index,
+    time::{Duration, Instant},
+};
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use domain::brag::{Impact, Type};
@@ -42,14 +49,14 @@ use ratatui::{
     prelude::Backend,
     style::{Color, Style},
     text::{self, Span, Text},
-    widgets::{block::title, Block, BorderType, Clear, List, ListItem, Paragraph},
+    widgets::{block::title, Block, BorderType, Clear, List, ListItem, Paragraph, Widget},
     Frame, Terminal,
 };
 
 use crate::base::{block::AppBlock, frame::AppFrame, list::AppList, paragraph::AppParagraph};
 
 pub struct App {
-    selecting_field: SelectingField,
+    selecting_field: Fields,
     inputs: Inputs,
     should_quit: bool,
     cursor_pos: usize,
@@ -58,7 +65,7 @@ pub struct App {
 impl App {
     pub fn default() -> Self {
         Self {
-            selecting_field: SelectingField::None,
+            selecting_field: Fields::None,
             inputs: Inputs {
                 title: String::new(),
                 typ: Type::Project,
@@ -182,35 +189,37 @@ impl App {
     }
 
     fn unselect(&mut self) {
-        self.selecting_field = SelectingField::None;
+        self.selecting_field = Fields::None;
     }
 
     fn up(&mut self) {
         match self.selecting_field {
-            SelectingField::None => self.selecting_field = SelectingField::Title,
-            SelectingField::Title => self.selecting_field = SelectingField::Title,
-            SelectingField::Type => self.selecting_field = SelectingField::Title,
+            Fields::None => self.selecting_field = Fields::Title,
+            Fields::Title => self.selecting_field = Fields::Title,
+            Fields::Type => self.selecting_field = Fields::Title,
+            Fields::Impact => self.selecting_field = Fields::Type,
         }
     }
 
     fn down(&mut self) {
         match self.selecting_field {
-            SelectingField::None => self.selecting_field = SelectingField::Title,
-            SelectingField::Title => self.selecting_field = SelectingField::Type,
-            SelectingField::Type => self.selecting_field = SelectingField::Type,
+            Fields::None => self.selecting_field = Fields::Title,
+            Fields::Title => self.selecting_field = Fields::Type,
+            Fields::Type => self.selecting_field = Fields::Type,
+            Fields::Impact => self.selecting_field = Fields::Impact,
         }
     }
 
     fn input(&mut self, c: char) {
         match self.selecting_field {
-            SelectingField::Title => self.enter_char(c),
+            Fields::Title => self.enter_char(c),
             _ => {}
         }
     }
 
     fn delete(&mut self) {
         match self.selecting_field {
-            SelectingField::Title => {
+            Fields::Title => {
                 self.delete_char();
             }
             _ => {}
@@ -218,7 +227,7 @@ impl App {
     }
 
     fn can_quit(&self) -> bool {
-        self.selecting_field == SelectingField::None
+        self.selecting_field == Fields::None
     }
 
     fn quit(&mut self) {
@@ -237,11 +246,11 @@ fn ui(frame: &mut Frame, app: &App) {
     .areas(frame.area());
 
     let title = Paragraph::app_default(app.inputs.title.as_str())
-        .selecting(app.selecting_field == SelectingField::Title)
+        .selecting(app.selecting_field == Fields::Title)
         .block(Block::bordered().title("Title"));
 
-    if app.selecting_field == SelectingField::Title {
-        frame.set_app_cursor(&title_area, app.cursor_pos as u16);
+    if app.selecting_field == Fields::Title {
+        frame.set_app_cursor(title_area, app.cursor_pos as u16);
     }
 
     let typ = Paragraph::app_default(match app.inputs.typ {
@@ -252,33 +261,25 @@ fn ui(frame: &mut Frame, app: &App) {
         Type::Learning => "Learning",
         Type::OutsideOfWork => "Outside of Work",
     })
-    .selecting(app.selecting_field == SelectingField::Type)
+    .selecting(app.selecting_field == Fields::Type)
     .block(Block::app_default().title("Type"));
 
-    let impact = Paragraph::new(match app.inputs.impact {
+    let impact = Paragraph::app_default(match app.inputs.impact {
         Impact::Trivial => "Trivial",
         Impact::Ordinary => "Ordinary",
         Impact::Notable => "Notable",
         Impact::Remarkable => "Remarkable",
         Impact::Extraordinary => "Extraordinary",
-    });
+    })
+    .selecting(app.selecting_field == Fields::Impact)
+    .block(Block::app_default().title("Impact"));
 
     frame.render_widget(title, title_area);
     frame.render_widget(typ, typ_area);
     frame.render_widget(impact, impact_area);
 
-    if app.selecting_field == SelectingField::Type {
-        let y = typ_area.y + typ_area.height;
-        let offset_area = Rect {
-            x: typ_area.x,
-            y: y,
-            width: typ_area.width,
-            height: frame.area().height - y,
-        };
-        let [popup_area] = Layout::vertical([Constraint::Max(8)]).areas(offset_area);
-
+    if app.selecting_field == Fields::Type {
         let block = Block::bordered().border_type(BorderType::Double);
-
         let type_items: Vec<ListItem> = [
             "Project",
             "Collaboration and Membership",
@@ -293,7 +294,23 @@ fn ui(frame: &mut Frame, app: &App) {
 
         let types = List::new(type_items).block(block).app_highlight();
 
-        frame.render_widget(Clear, popup_area);
-        frame.render_widget(types, popup_area);
+        render_popup_below_area(frame, types, typ_area, None, Some(8));
     }
+}
+
+fn render_popup_below_area<W: Widget>(
+    frame: &mut Frame,
+    popup: W,
+    anchor: Rect,
+    max_width: Option<u16>,
+    max_height: Option<u16>,
+) {
+    let popup_area = Rect {
+        x: anchor.left(),
+        y: anchor.bottom(),
+        width: max_width.unwrap_or(anchor.width),
+        height: max_height.unwrap_or(anchor.height),
+    };
+    let intersection = popup_area.intersection(frame.area());
+    frame.render_popup(popup, intersection);
 }
