@@ -8,7 +8,7 @@ use domain::brag::{Impact, Type};
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Layout},
+    layout::{Constraint, Layout, Rect},
     prelude::Backend,
     text::{self, Span},
     widgets::{Block, List, ListItem, Paragraph},
@@ -172,7 +172,7 @@ impl App {
         let last_tick = Instant::now();
 
         while !self.state.should_quit {
-            terminal.draw(|frame| Screen::new(frame).render(self))?;
+            terminal.draw(|frame| Screen::new(frame, self).render())?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
             self.handle_event(timeout)?;
         }
@@ -277,14 +277,15 @@ impl App {
 
 struct Screen<'a, 'b> {
     frame: &'a mut Frame<'b>,
+    app: &'a App,
 }
 
 impl<'a, 'b> Screen<'a, 'b> {
-    pub fn new(frame: &'a mut Frame<'b>) -> Self {
-        Self { frame }
+    pub fn new(frame: &'a mut Frame<'b>, app: &'a App) -> Self {
+        Self { frame, app }
     }
 
-    fn render(&mut self, app: &App) {
+    fn render(&mut self) {
         let [title_area, typ_area, impact_area] = Layout::vertical([
             Constraint::Length(3),
             Constraint::Length(3),
@@ -292,20 +293,35 @@ impl<'a, 'b> Screen<'a, 'b> {
         ])
         .areas(self.frame.area());
 
-        let title = TextField::new(&app.title_controller)
+        self.render_title(title_area);
+        self.render_typ(typ_area);
+        self.render_impact(impact_area);
+        self.render_typ_popup_if_selecting(typ_area);
+    }
+
+    fn render_title(&mut self, area: Rect) {
+        let title = TextField::new(&self.app.title_controller)
             .block(Block::bordered().title(Field::Title.text()));
 
-        let typ = Paragraph::app_default(app.state.inputs.typ.text())
-            .block(Block::app_default().title(Field::Type.text()));
+        self.frame.render_text_field(title, area);
+    }
 
-        let impact = Paragraph::app_default(app.state.inputs.impact.text())
-            .block(Block::app_default().title(Field::Impact.text()));
+    fn render_typ(&mut self, area: Rect) {
+        let typ = Paragraph::app_default(self.app.state.inputs.typ.text())
+            .block(Block::bordered().title(Field::Type.text()));
 
-        self.frame.render_text_field(title, title_area);
-        self.frame.render_widget(typ, typ_area);
-        self.frame.render_widget(impact, impact_area);
+        self.frame.render_widget(typ, area);
+    }
 
-        if app.state.selecting_field == Some(Field::Type) {
+    fn render_impact(&mut self, area: Rect) {
+        let impact = Paragraph::app_default(self.app.state.inputs.impact.text())
+            .block(Block::bordered().title(Field::Impact.text()));
+
+        self.frame.render_widget(impact, area);
+    }
+
+    fn render_typ_popup_if_selecting(&mut self, typ_area: Rect) {
+        if self.app.state.selecting_field == Some(Field::Type) {
             let typ_items = Type::VARIANTS
                 .iter()
                 .map(|t| ListItem::new(vec![text::Line::from(Span::raw(t.text()))]))

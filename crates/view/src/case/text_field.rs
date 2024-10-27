@@ -142,7 +142,7 @@ impl<'a> WidgetRef for TextField<'a> {
 
         paragraph = match self.controller.mode {
             Mode::Display => paragraph.style(Style::default()),
-            Mode::Active => paragraph.style(Style::default().bold()),
+            Mode::Active => paragraph.style(Style::default()),
             Mode::Deactive => paragraph.style(Style::default().fg(Color::DarkGray)),
             Mode::Edit => paragraph.style(Style::default().bold()),
         };
