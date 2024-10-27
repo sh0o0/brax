@@ -1,5 +1,5 @@
 use ratatui::{
-    layout::{Position, Rect},
+    layout::Rect,
     widgets::{Clear, Widget},
     Frame,
 };
@@ -13,7 +13,6 @@ pub trait AppFrame {
         max_width: Option<u16>,
         max_height: Option<u16>,
     );
-    fn set_app_cursor_position(&mut self, p: Position);
 }
 
 impl<'a> AppFrame for Frame<'a> {
@@ -38,9 +37,5 @@ impl<'a> AppFrame for Frame<'a> {
         };
         let intersection = popup_area.intersection(self.area());
         self.render_popup(popup, intersection);
-    }
-
-    fn set_app_cursor_position(&mut self, position: Position) {
-        self.set_cursor_position(position);
     }
 }

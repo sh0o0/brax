@@ -1,19 +1,26 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
-    text::Text,
+    style::{Color, Style, Stylize},
     widgets::{Block, Paragraph, Widget, WidgetRef},
     Frame,
 };
 
-enum Status {
-    Editing,
+use crate::base::paragraph::AppParagraph;
+
+#[derive(Debug, strum::EnumIs)]
+pub enum Mode {
+    Display,
+    Active,
+    Deactive,
+    Edit,
 }
 
 #[derive(Debug)]
 pub struct TextFieldController {
     text: String,
-    cursor_pos: usize,
+    cursor_index: usize,
+    mode: Mode,
 }
 
 impl<'a> TextFieldController {
@@ -22,25 +29,33 @@ impl<'a> TextFieldController {
     }
 
     fn new(text: String, cursor_pos: usize) -> Self {
-        Self { text, cursor_pos }
+        Self {
+            text,
+            cursor_index: cursor_pos,
+            mode: Mode::Display,
+        }
     }
 
     pub fn text(&self) -> &str {
         &self.text
     }
 
-    pub fn cursor_pos(&self) -> usize {
-        self.cursor_pos
+    pub fn cursor_index(&self) -> usize {
+        self.cursor_index
+    }
+
+    pub fn mode(&mut self, m: Mode) {
+        self.mode = m;
     }
 
     pub fn move_cursor_left(&mut self) {
-        let cursor_moved_left = self.cursor_pos.saturating_sub(1);
-        self.cursor_pos = self.clamp_cursor(cursor_moved_left);
+        let cursor_moved_left = self.cursor_index.saturating_sub(1);
+        self.cursor_index = self.clamp_cursor(cursor_moved_left);
     }
 
     pub fn move_cursor_right(&mut self) {
-        let cursor_moved_right = self.cursor_pos.saturating_add(1);
-        self.cursor_pos = self.clamp_cursor(cursor_moved_right);
+        let cursor_moved_right = self.cursor_index.saturating_add(1);
+        self.cursor_index = self.clamp_cursor(cursor_moved_right);
     }
 
     pub fn enter_char(&mut self, new_char: char) {
@@ -57,18 +72,18 @@ impl<'a> TextFieldController {
         self.text
             .char_indices()
             .map(|(i, _)| i)
-            .nth(self.cursor_pos)
+            .nth(self.cursor_index)
             .unwrap_or(self.text.len())
     }
 
     pub fn delete_char(&mut self) {
-        let is_not_cursor_leftmost = self.cursor_pos != 0;
+        let is_not_cursor_leftmost = self.cursor_index != 0;
         if is_not_cursor_leftmost {
             // Method "remove" is not used on the saved text for deleting the selected char.
             // Reason: Using remove on String works on bytes instead of the chars.
             // Using remove would require special care because of char boundaries.
 
-            let current_index = self.cursor_pos;
+            let current_index = self.cursor_index;
             let from_left_to_current_index = current_index - 1;
 
             // Getting all characters before the selected character.
@@ -88,22 +103,20 @@ impl<'a> TextFieldController {
     }
 
     pub fn reset_cursor(&mut self) {
-        self.cursor_pos = 0;
+        self.cursor_index = 0;
     }
 }
 
-pub struct TextField<'a, F: FnMut(Position)> {
+pub struct TextField<'a> {
     controller: &'a TextFieldController,
     block: Option<Block<'a>>,
-    set_cursor_position: Option<F>,
 }
 
-impl<'a, F: FnMut(Position)> TextField<'a, F> {
+impl<'a> TextField<'a> {
     pub fn new(controller: &'a TextFieldController) -> Self {
         Self {
             controller,
             block: None,
-            set_cursor_position: None,
         }
     }
 
@@ -111,38 +124,48 @@ impl<'a, F: FnMut(Position)> TextField<'a, F> {
         self.block = Some(block);
         self
     }
-
-    pub fn cursor(mut self, set_cursor_position: F) -> Self {
-        self.set_cursor_position = Some(set_cursor_position);
-        self
-    }
 }
 
-impl<'a, F: FnMut(Position)> TextField<'a, F> {
-    fn render_cursor(self, area: Rect) {
-        if let Some(mut set_cursor_position) = self.set_cursor_position {
-            let cursor_pos = self.controller.cursor_pos as u16;
-            let cursor_x = area.x + cursor_pos + 1;
-            let cursor_y = area.y + 1;
-            set_cursor_position(Position {
-                x: cursor_x,
-                y: cursor_y,
-            });
-        }
-    }
-}
-
-impl<'a, F: FnMut(Position)> Widget for TextField<'a, F> {
+impl<'a> Widget for TextField<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         self.render_ref(area, buf);
-        self.render_cursor(area);
     }
 }
 
-impl<'a, F: FnMut(Position)> WidgetRef for TextField<'a, F> {
+impl<'a> WidgetRef for TextField<'a> {
     fn render_ref(&self, area: Rect, buf: &mut Buffer) {
-        let text = Text::raw(self.controller.text());
-        let paragraph = Paragraph::new(text).block(self.block.as_ref().unwrap().clone());
+        let mut paragraph = Paragraph::app_default(self.controller.text());
+
+        if let Some(block) = &self.block {
+            paragraph = paragraph.block(block.clone());
+        }
+
+        paragraph = match self.controller.mode {
+            Mode::Display => paragraph.style(Style::default()),
+            Mode::Active => paragraph.style(Style::default().bold()),
+            Mode::Deactive => paragraph.style(Style::default().fg(Color::DarkGray)),
+            Mode::Edit => paragraph.style(Style::default().bold()),
+        };
+
         paragraph.render(area, buf);
+    }
+}
+
+pub trait TextFieldFrame {
+    fn render_text_field(&mut self, text_field: TextField, area: Rect);
+}
+
+impl<'a> TextFieldFrame for Frame<'a> {
+    fn render_text_field(&mut self, text_field: TextField, area: Rect) {
+        if text_field.controller.mode.is_edit() {
+            let cursor_pos = text_field.controller.cursor_index() as u16;
+            let position = Position {
+                x: area.x + cursor_pos + 1,
+                y: area.y + 1,
+            };
+            self.set_cursor_position(position);
+        };
+
+        self.render_widget(text_field, area);
     }
 }

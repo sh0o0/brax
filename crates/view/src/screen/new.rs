@@ -1,6 +1,6 @@
 use crate::{
     base::{block::AppBlock, frame::AppFrame, list::AppList, paragraph::AppParagraph},
-    case::text_field::{TextField, TextFieldController},
+    case::text_field::{Mode, TextField, TextFieldController, TextFieldFrame},
     utils::{self, text::Txt},
 };
 
@@ -8,7 +8,7 @@ use domain::brag::{Impact, Type};
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Layout, Position},
+    layout::{Constraint, Layout},
     prelude::Backend,
     text::{self, Span},
     widgets::{Block, List, ListItem, Paragraph},
@@ -104,7 +104,6 @@ impl utils::text::Txt for Type {
 #[derive(Debug)]
 
 struct Inputs {
-    title: TextFieldController,
     typ: Type,
     impact: Impact,
     // organization: String,
@@ -130,7 +129,6 @@ impl State {
         Self {
             selecting_field: None,
             inputs: Inputs {
-                title: TextFieldController::default(),
                 typ: Type::Project,
                 impact: Impact::Trivial,
             },
@@ -155,12 +153,14 @@ impl State {
 
 pub struct App {
     state: State,
+    title_controller: TextFieldController,
 }
 
 impl App {
     pub fn default() -> Self {
         Self {
             state: State::empty(),
+            title_controller: TextFieldController::default(),
         }
     }
 
@@ -170,10 +170,9 @@ impl App {
         tick_rate: Duration,
     ) -> util::error::Result<()> {
         let last_tick = Instant::now();
-        let screen = Screen::new();
 
         while !self.state.should_quit {
-            terminal.draw(|frame| screen.render(frame, self))?;
+            terminal.draw(|frame| Screen::new(frame).render(self))?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
             self.handle_event(timeout)?;
         }
@@ -224,14 +223,14 @@ impl App {
 
     fn on_left(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.state.inputs.title.move_cursor_left(),
+            Some(Field::Title) => self.title_controller.move_cursor_left(),
             _ => {}
         }
     }
 
     fn on_right(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.state.inputs.title.move_cursor_right(),
+            Some(Field::Title) => self.title_controller.move_cursor_right(),
             _ => {}
         }
     }
@@ -241,6 +240,7 @@ impl App {
             None => self.state.selecting_field = Some(Field::VARIANTS.last().unwrap().clone()),
             Some(field) => self.state.selecting_field = field.prev(),
         }
+        self.on_selecting_field_changed();
     }
 
     fn on_down(&mut self) {
@@ -248,11 +248,12 @@ impl App {
             None => self.state.selecting_field = Some(Field::VARIANTS.first().unwrap().clone()),
             Some(field) => self.state.selecting_field = field.next(),
         }
+        self.on_selecting_field_changed();
     }
 
     fn on_input(&mut self, c: char) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.state.inputs.title.enter_char(c),
+            Some(Field::Title) => self.title_controller.enter_char(c),
             _ => {}
         }
     }
@@ -260,50 +261,49 @@ impl App {
     fn on_delete(&mut self) {
         match self.state.selecting_field {
             Some(Field::Title) => {
-                self.state.inputs.title.delete_char();
+                self.title_controller.delete_char();
             }
             _ => {}
         }
     }
+
+    fn on_selecting_field_changed(&mut self) {
+        match self.state.selecting_field {
+            Some(Field::Title) => self.title_controller.mode(Mode::Edit),
+            _ => self.title_controller.mode(Mode::Display),
+        }
+    }
 }
 
-struct Screen {}
+struct Screen<'a, 'b> {
+    frame: &'a mut Frame<'b>,
+}
 
-impl Screen {
-    pub fn new() -> Self {
-        Self {}
+impl<'a, 'b> Screen<'a, 'b> {
+    pub fn new(frame: &'a mut Frame<'b>) -> Self {
+        Self { frame }
     }
 
-    fn render(&self, frame: &mut Frame, app: &App) {
+    fn render(&mut self, app: &App) {
         let [title_area, typ_area, impact_area] = Layout::vertical([
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
         ])
-        .areas(frame.area());
+        .areas(self.frame.area());
 
-        let title = Paragraph::app_default(app.state.inputs.title.text())
-            .selecting(app.state.selecting_field == Some(Field::Title))
+        let title = TextField::new(&app.title_controller)
             .block(Block::bordered().title(Field::Title.text()));
-        let title =
-            TextField::new(&app.state.inputs.title).cursor(|pos| frame.set_cursor_position(pos));
-
-        // if app.state.selecting_field == Some(Field::Title) {
-        //     let text_field = TextField::new(&app.state.inputs.title)
-        //         .cursor(|pos| frame.set_cursor_position(pos));
-        // }
 
         let typ = Paragraph::app_default(app.state.inputs.typ.text())
-            .selecting(app.state.selecting_field == Some(Field::Type))
             .block(Block::app_default().title(Field::Type.text()));
 
         let impact = Paragraph::app_default(app.state.inputs.impact.text())
-            .selecting(app.state.selecting_field == Some(Field::Impact))
             .block(Block::app_default().title(Field::Impact.text()));
 
-        frame.render_widget(title, title_area);
-        frame.render_widget(typ, typ_area);
-        frame.render_widget(impact, impact_area);
+        self.frame.render_text_field(title, title_area);
+        self.frame.render_widget(typ, typ_area);
+        self.frame.render_widget(impact, impact_area);
 
         if app.state.selecting_field == Some(Field::Type) {
             let typ_items = Type::VARIANTS
@@ -312,7 +312,8 @@ impl Screen {
                 .collect::<Vec<_>>();
             let types = List::new(typ_items).block(Block::popup()).app_highlight();
 
-            frame.render_popup_below_anchor(types, typ_area, None, Some(8));
+            self.frame
+                .render_popup_below_anchor(types, typ_area, None, Some(8));
         }
     }
 }
