@@ -1,10 +1,13 @@
+mod app;
 mod base;
 mod case;
+mod model;
 mod screen;
 mod utils;
 
 use std::{io::stdout, time::Duration};
 
+use app::new::App;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
@@ -21,7 +24,7 @@ pub fn run_new() -> Result<(), Box<dyn core::error::Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     // create app and run it
-    let mut app = screen::new::App::default();
+    let mut app = App::default();
     app.run(&mut terminal, Duration::from_millis(250))?;
 
     // restore terminal
