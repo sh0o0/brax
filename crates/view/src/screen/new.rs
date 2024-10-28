@@ -1,7 +1,7 @@
 use crate::{
     app::new::App,
+    base::text_field::{TextField, TextFieldFrame},
     base::{block::AppBlock, frame::AppFrame, list::AppList, paragraph::AppParagraph},
-    case::text_field::{TextField, TextFieldFrame},
     model::new::Field,
     utils::{self, text::Txt},
 };

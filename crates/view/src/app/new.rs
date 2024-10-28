@@ -1,5 +1,5 @@
 use crate::{
-    case::text_field::{Mode, TextFieldController},
+    base::text_field::{Mode, TextFieldController},
     model::new::{Field, State},
     screen::new::Screen,
 };
