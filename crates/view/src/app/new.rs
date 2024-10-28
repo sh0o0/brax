@@ -1,5 +1,5 @@
 use crate::{
-    base::text_field::{Mode, TextFieldController},
+    base::text_field::{Mode, TextFieldState},
     model::new::{Field, State},
     screen::new::Screen,
 };
@@ -11,14 +11,14 @@ use strum::VariantArray;
 
 pub struct App {
     pub state: State,
-    pub title_controller: TextFieldController,
+    pub title_state: TextFieldState,
 }
 
 impl App {
     pub fn default() -> Self {
         Self {
             state: State::empty(),
-            title_controller: TextFieldController::default(),
+            title_state: TextFieldState::default(),
         }
     }
 
@@ -31,7 +31,7 @@ impl App {
 
         while !self.state.should_quit {
             terminal.draw(|frame| {
-                Screen::new(frame, &self.state, &self.title_controller).render();
+                Screen::new(frame, &self.state, &mut self.title_state).render();
             })?;
 
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
@@ -84,14 +84,14 @@ impl App {
 
     fn on_left(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.title_controller.move_cursor_left(),
+            Some(Field::Title) => self.title_state.move_cursor_left(),
             _ => {}
         }
     }
 
     fn on_right(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.title_controller.move_cursor_right(),
+            Some(Field::Title) => self.title_state.move_cursor_right(),
             _ => {}
         }
     }
@@ -114,7 +114,7 @@ impl App {
 
     fn on_input(&mut self, c: char) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.title_controller.enter_char(c),
+            Some(Field::Title) => self.title_state.enter_char(c),
             _ => {}
         }
     }
@@ -122,7 +122,7 @@ impl App {
     fn on_delete(&mut self) {
         match self.state.selecting_field {
             Some(Field::Title) => {
-                self.title_controller.delete_char();
+                self.title_state.delete_char();
             }
             _ => {}
         }
@@ -130,8 +130,8 @@ impl App {
 
     fn on_selecting_field_changed(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.title_controller.mode(Mode::Edit),
-            _ => self.title_controller.mode(Mode::Display),
+            Some(Field::Title) => self.title_state.change_mode(Mode::Edit),
+            _ => self.title_state.change_mode(Mode::Display),
         }
     }
 }

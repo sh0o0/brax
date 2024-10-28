@@ -1,11 +1,10 @@
 use crate::{
-    app::new::App,
     base::{
         block::AppBlock,
         frame::AppFrame,
         list::AppList,
         paragraph::AppParagraph,
-        text_field::{TextField, TextFieldController, TextFieldFrame},
+        text_field::{TextField, TextFieldFrame, TextFieldState},
     },
     model::new::{Field, State},
     utils::{self, text::Txt},
@@ -68,19 +67,19 @@ impl utils::text::Txt for Type {
 pub struct Screen<'a, 'b> {
     frame: &'a mut Frame<'b>,
     state: &'a State,
-    title_controller: &'a TextFieldController,
+    title_state: &'a mut TextFieldState,
 }
 
 impl<'a, 'b> Screen<'a, 'b> {
     pub fn new(
         frame: &'a mut Frame<'b>,
         state: &'a State,
-        title_controller: &'a TextFieldController,
+        title_state: &'a mut TextFieldState,
     ) -> Self {
         Self {
             frame,
             state,
-            title_controller,
+            title_state,
         }
     }
 
@@ -95,14 +94,14 @@ impl<'a, 'b> Screen<'a, 'b> {
         self.render_title(title_area);
         self.render_typ(typ_area);
         self.render_impact(impact_area);
+
         self.render_typ_popup_if_selecting(typ_area);
     }
 
     fn render_title(&mut self, area: Rect) {
-        let title = TextField::new(&self.title_controller)
-            .block(Block::bordered().title(Field::Title.text()));
+        let title = TextField::new().block(Block::bordered().title(Field::Title.text()));
 
-        self.frame.render_text_field(title, area);
+        self.frame.render_text_field(title, area, self.title_state);
     }
 
     fn render_typ(&mut self, area: Rect) {

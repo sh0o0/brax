@@ -2,7 +2,7 @@ use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
     style::{Color, Style, Stylize},
-    widgets::{Block, Paragraph, Widget, WidgetRef},
+    widgets::{Block, Paragraph, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef},
     Frame,
 };
 
@@ -17,13 +17,13 @@ pub enum Mode {
 }
 
 #[derive(Debug)]
-pub struct TextFieldController {
+pub struct TextFieldState {
     text: String,
     cursor_index: usize,
     mode: Mode,
 }
 
-impl<'a> TextFieldController {
+impl<'a> TextFieldState {
     pub fn default() -> Self {
         Self::new(String::new(), 0)
     }
@@ -44,7 +44,7 @@ impl<'a> TextFieldController {
         self.cursor_index
     }
 
-    pub fn mode(&mut self, m: Mode) {
+    pub fn change_mode(&mut self, m: Mode) {
         self.mode = m;
     }
 
@@ -108,16 +108,12 @@ impl<'a> TextFieldController {
 }
 
 pub struct TextField<'a> {
-    controller: &'a TextFieldController,
     block: Option<Block<'a>>,
 }
 
 impl<'a> TextField<'a> {
-    pub fn new(controller: &'a TextFieldController) -> Self {
-        Self {
-            controller,
-            block: None,
-        }
+    pub fn new() -> Self {
+        Self { block: None }
     }
 
     pub fn block(mut self, block: Block<'a>) -> Self {
@@ -126,21 +122,25 @@ impl<'a> TextField<'a> {
     }
 }
 
-impl<'a> Widget for TextField<'a> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        self.render_ref(area, buf);
+impl<'a> StatefulWidget for TextField<'a> {
+    type State = TextFieldState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.render_ref(area, buf, state);
     }
 }
 
-impl<'a> WidgetRef for TextField<'a> {
-    fn render_ref(&self, area: Rect, buf: &mut Buffer) {
-        let mut paragraph = Paragraph::app_default(self.controller.text());
+impl<'a> StatefulWidgetRef for TextField<'a> {
+    type State = TextFieldState;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut TextFieldState) {
+        let mut paragraph = Paragraph::app_default(state.text());
 
         if let Some(block) = &self.block {
             paragraph = paragraph.block(block.clone());
         }
 
-        paragraph = match self.controller.mode {
+        paragraph = match state.mode {
             Mode::Display => paragraph.style(Style::default()),
             Mode::Active => paragraph.style(Style::default()),
             Mode::Deactive => paragraph.style(Style::default().fg(Color::DarkGray)),
@@ -152,13 +152,13 @@ impl<'a> WidgetRef for TextField<'a> {
 }
 
 pub trait TextFieldFrame {
-    fn render_text_field(&mut self, text_field: TextField, area: Rect);
+    fn render_text_field(&mut self, text_field: TextField, area: Rect, state: &mut TextFieldState);
 }
 
 impl<'a> TextFieldFrame for Frame<'a> {
-    fn render_text_field(&mut self, text_field: TextField, area: Rect) {
-        if text_field.controller.mode.is_edit() {
-            let cursor_pos = text_field.controller.cursor_index() as u16;
+    fn render_text_field(&mut self, text_field: TextField, area: Rect, state: &mut TextFieldState) {
+        if state.mode.is_edit() {
+            let cursor_pos = state.cursor_index() as u16;
             let position = Position {
                 x: area.x + cursor_pos + 1,
                 y: area.y + 1,
@@ -166,6 +166,6 @@ impl<'a> TextFieldFrame for Frame<'a> {
             self.set_cursor_position(position);
         };
 
-        self.render_widget(text_field, area);
+        self.render_stateful_widget(text_field, area, state);
     }
 }
