@@ -30,7 +30,10 @@ impl App {
         let last_tick = Instant::now();
 
         while !self.state.should_quit {
-            terminal.draw(|frame| Screen::new(frame, self).render())?;
+            terminal.draw(|frame| {
+                Screen::new(frame, &self.state, &self.title_controller).render();
+            })?;
+
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
             self.handle_event(timeout)?;
         }

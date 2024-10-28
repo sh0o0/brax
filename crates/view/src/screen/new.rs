@@ -1,8 +1,13 @@
 use crate::{
     app::new::App,
-    base::text_field::{TextField, TextFieldFrame},
-    base::{block::AppBlock, frame::AppFrame, list::AppList, paragraph::AppParagraph},
-    model::new::Field,
+    base::{
+        block::AppBlock,
+        frame::AppFrame,
+        list::AppList,
+        paragraph::AppParagraph,
+        text_field::{TextField, TextFieldController, TextFieldFrame},
+    },
+    model::new::{Field, State},
     utils::{self, text::Txt},
 };
 
@@ -62,12 +67,21 @@ impl utils::text::Txt for Type {
 
 pub struct Screen<'a, 'b> {
     frame: &'a mut Frame<'b>,
-    app: &'a App,
+    state: &'a State,
+    title_controller: &'a TextFieldController,
 }
 
 impl<'a, 'b> Screen<'a, 'b> {
-    pub fn new(frame: &'a mut Frame<'b>, app: &'a App) -> Self {
-        Self { frame, app }
+    pub fn new(
+        frame: &'a mut Frame<'b>,
+        state: &'a State,
+        title_controller: &'a TextFieldController,
+    ) -> Self {
+        Self {
+            frame,
+            state,
+            title_controller,
+        }
     }
 
     pub fn render(&mut self) {
@@ -85,28 +99,28 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_title(&mut self, area: Rect) {
-        let title = TextField::new(&self.app.title_controller)
+        let title = TextField::new(&self.title_controller)
             .block(Block::bordered().title(Field::Title.text()));
 
         self.frame.render_text_field(title, area);
     }
 
     fn render_typ(&mut self, area: Rect) {
-        let typ = Paragraph::app_default(self.app.state.inputs.typ.text())
+        let typ = Paragraph::app_default(self.state.inputs.typ.text())
             .block(Block::bordered().title(Field::Type.text()));
 
         self.frame.render_widget(typ, area);
     }
 
     fn render_impact(&mut self, area: Rect) {
-        let impact = Paragraph::app_default(self.app.state.inputs.impact.text())
+        let impact = Paragraph::app_default(self.state.inputs.impact.text())
             .block(Block::bordered().title(Field::Impact.text()));
 
         self.frame.render_widget(impact, area);
     }
 
     fn render_typ_popup_if_selecting(&mut self, typ_area: Rect) {
-        if self.app.state.selecting_field == Some(Field::Type) {
+        if self.state.selecting_field == Some(Field::Type) {
             let typ_items = Type::VARIANTS
                 .iter()
                 .map(|t| ListItem::new(vec![text::Line::from(Span::raw(t.text()))]))
