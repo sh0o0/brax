@@ -61,6 +61,7 @@ impl App {
                     KeyCode::Char('q') => self.quit(),
                     KeyCode::Esc => self.on_escape(),
                     KeyCode::Delete | KeyCode::Backspace => self.on_delete(),
+                    KeyCode::Enter => self.on_enter(),
                     KeyCode::Char(c) => self.on_input(c),
                     _ => {}
                 }
@@ -73,6 +74,14 @@ impl App {
 
     fn quit(&mut self) {
         self.should_quit = true;
+    }
+
+    fn on_enter(&mut self) {
+        match self.state.selecting_field {
+            Some(Field::Title) => self.state.select_next_field(),
+            Some(Field::Type) => self.state.select_next_field(),
+            _ => {}
+        }
     }
 
     fn on_left(&mut self) {
@@ -90,11 +99,17 @@ impl App {
     }
 
     fn on_up(&mut self) {
-        self.state.select_up();
+        match self.state.selecting_field {
+            Some(Field::Type) => self.state.typ.select_previous(),
+            _ => self.state.select_previous_field(),
+        }
     }
 
     fn on_down(&mut self) {
-        self.state.select_down();
+        match self.state.selecting_field {
+            Some(Field::Type) => self.state.typ.select_next(),
+            _ => self.state.select_next_field(),
+        }
     }
 
     fn on_input(&mut self, c: char) {

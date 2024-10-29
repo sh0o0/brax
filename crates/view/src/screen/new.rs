@@ -1,22 +1,22 @@
+use std::fmt::Display;
+
 use crate::{
     base::{
         block::AppBlock,
-        frame::AppFrame,
-        list::AppList,
         paragraph::AppParagraph,
         text_field::{Mode, TextField, TextFieldFrame, TextFieldState},
     },
+    case::type_list::{TypeList, TypeListState},
     utils::{self, text::Txt},
 };
-use domain::brag::{Impact, Type};
+use domain::brag::Impact;
 
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    text::{self, Span},
-    widgets::{Block, List, ListItem, ListState, Paragraph},
+    widgets::{Block, BorderType, Clear, Paragraph},
     Frame,
 };
-use strum::VariantArray;
+use strum::{Display, VariantArray};
 
 #[derive(Debug, PartialEq, Eq, Clone, strum::VariantArray)]
 pub enum Field {
@@ -58,9 +58,11 @@ impl Field {
     }
 }
 
+#[derive(Debug)]
 pub struct State {
     pub selecting_field: Option<Field>,
     pub title: TextFieldState,
+    pub typ: TypeListState,
 }
 
 impl<'a> State {
@@ -68,20 +70,21 @@ impl<'a> State {
         Self {
             selecting_field: None,
             title: TextFieldState::default(),
+            typ: TypeListState::default().with_selected(Some(0)),
         }
     }
 
-    pub fn select_up(&mut self) {
-        match &self.selecting_field {
-            None => self.selecting_field = Some(Field::VARIANTS.last().unwrap().clone()),
-            Some(field) => self.selecting_field = field.clone().prev(),
-        }
-    }
-
-    pub fn select_down(&mut self) {
+    pub fn select_next_field(&mut self) {
         match &self.selecting_field {
             None => self.selecting_field = Some(Field::VARIANTS.first().unwrap().clone()),
             Some(field) => self.selecting_field = field.clone().next(),
+        }
+    }
+
+    pub fn select_previous_field(&mut self) {
+        match &self.selecting_field {
+            None => self.selecting_field = Some(Field::VARIANTS.last().unwrap().clone()),
+            Some(field) => self.selecting_field = field.clone().prev(),
         }
     }
 
@@ -101,6 +104,15 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     pub fn render(&mut self) {
+        log::info!(
+            "Rendering screen, {}",
+            self.state
+                .selecting_field
+                .clone()
+                .map(|f| f.text())
+                .unwrap_or("None".to_string())
+        );
+
         let [title_area, typ_area, impact_area] = Layout::vertical([
             Constraint::Length(3),
             Constraint::Length(3),
@@ -128,7 +140,13 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_typ(&mut self, area: Rect) {
-        let typ = Paragraph::app_default("xxx").block(Block::bordered().title(Field::Type.text()));
+        let typ_text = match self.state.typ.selected_type() {
+            Some(typ) => typ.text(),
+            None => "Select a type".to_string(),
+        };
+
+        let typ =
+            Paragraph::app_default(typ_text).block(Block::bordered().title(Field::Type.text()));
 
         self.frame.render_widget(typ, area);
     }
@@ -141,16 +159,22 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_typ_popup_if_selecting(&mut self, typ_area: Rect) {
-        if self.state.selecting_field == Some(Field::Type) {
-            let typ_items = Type::VARIANTS
-                .iter()
-                .map(|t| ListItem::new(vec![text::Line::from(Span::raw(t.text()))]))
-                .collect::<Vec<_>>();
-            let types = List::new(typ_items).block(Block::popup()).app_highlight();
-
-            self.frame
-                .render_popup_below_anchor(types, typ_area, None, Some(8));
+        if self.state.selecting_field != Some(Field::Type) {
+            return;
         }
+
+        let typ_list = TypeList::new().block(Block::app_default().border_type(BorderType::Double));
+
+        let popup_area = Rect {
+            x: typ_area.left(),
+            y: typ_area.bottom(),
+            width: typ_area.width,
+            height: 8.min(self.frame.area().height),
+        };
+        let intersection = popup_area.intersection(self.frame.area());
+        self.frame.render_widget(Clear, intersection);
+        self.frame
+            .render_stateful_widget(typ_list, intersection, &mut self.state.typ);
     }
 }
 
@@ -181,19 +205,6 @@ impl utils::text::Txt for Impact {
             Impact::Notable => "Notable".to_string(),
             Impact::Remarkable => "Remarkable".to_string(),
             Impact::Extraordinary => "Extraordinary".to_string(),
-        }
-    }
-}
-
-impl utils::text::Txt for Type {
-    fn text(&self) -> String {
-        match self {
-            Type::Project => "Project".to_string(),
-            Type::CollaborationAndMembership => "Collaboration and Membership".to_string(),
-            Type::DesignAndDocumentation => "Design and Documentation".to_string(),
-            Type::CompanyBuilding => "Company Building".to_string(),
-            Type::Learning => "Learning".to_string(),
-            Type::OutsideOfWork => "Outside of Work".to_string(),
         }
     }
 }

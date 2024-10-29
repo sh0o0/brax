@@ -1,5 +1,5 @@
 use ratatui::{
-    style::{Color, Style},
+    style::{Color, Style, Stylize},
     widgets::List,
 };
 
@@ -9,7 +9,7 @@ pub trait AppList<'a> {
 
 impl<'a> AppList<'a> for List<'a> {
     fn app_highlight(self) -> Self {
-        self.highlight_style(Style::default().fg(Color::Yellow))
+        self.highlight_style(Style::default().bold())
             .highlight_symbol("> ")
     }
 }
