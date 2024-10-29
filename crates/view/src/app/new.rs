@@ -54,8 +54,10 @@ impl App {
 
             if key.kind == KeyEventKind::Press {
                 match key.code {
-                    KeyCode::Up | KeyCode::Char('k') => self.on_up(),
-                    KeyCode::Down | KeyCode::Char('j') => self.on_down(),
+                    KeyCode::Up => self.on_up(),
+                    KeyCode::Down => self.on_down(),
+                    KeyCode::Char('k') => self.on_k(),
+                    KeyCode::Char('j') => self.on_j(),
                     KeyCode::Left => self.on_left(),
                     KeyCode::Right => self.on_right(),
                     KeyCode::Char('q') => self.quit(),
@@ -130,5 +132,23 @@ impl App {
 
     fn on_escape(&mut self) {
         self.state.unselect();
+    }
+
+    fn on_k(&mut self) {
+        const k: char = 'k';
+
+        match self.state.selecting_field {
+            Some(Field::Title) => self.on_input(k),
+            _ => self.on_up(),
+        }
+    }
+
+    fn on_j(&mut self) {
+        const j: char = 'j';
+
+        match self.state.selecting_field {
+            Some(Field::Title) => self.on_input(j),
+            _ => self.on_down(),
+        }
     }
 }
