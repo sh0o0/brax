@@ -1,26 +1,17 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
-    style::{Color, Style, Stylize},
-    widgets::{Block, Paragraph, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef},
+    style::{Style, Stylize},
+    widgets::{Block, Paragraph, StatefulWidget, StatefulWidgetRef, Widget},
     Frame,
 };
 
 use crate::base::paragraph::AppParagraph;
 
-#[derive(Debug, strum::EnumIs)]
-pub enum Mode {
-    Display,
-    Active,
-    Deactive,
-    Edit,
-}
-
 #[derive(Debug)]
 pub struct TextFieldState {
     text: String,
     cursor_index: usize,
-    mode: Mode,
 }
 
 impl<'a> TextFieldState {
@@ -28,12 +19,8 @@ impl<'a> TextFieldState {
         Self::new(String::new(), 0)
     }
 
-    fn new(text: String, cursor_pos: usize) -> Self {
-        Self {
-            text,
-            cursor_index: cursor_pos,
-            mode: Mode::Display,
-        }
+    fn new(text: String, cursor_index: usize) -> Self {
+        Self { text, cursor_index }
     }
 
     pub fn text(&self) -> &str {
@@ -42,10 +29,6 @@ impl<'a> TextFieldState {
 
     pub fn cursor_index(&self) -> usize {
         self.cursor_index
-    }
-
-    pub fn change_mode(&mut self, m: Mode) {
-        self.mode = m;
     }
 
     pub fn move_cursor_left(&mut self) {
@@ -107,17 +90,34 @@ impl<'a> TextFieldState {
     }
 }
 
+#[derive(Debug, strum::EnumIs)]
+pub enum Mode {
+    Display,
+    Active,
+    Deactive,
+    Edit,
+}
+
 pub struct TextField<'a> {
     block: Option<Block<'a>>,
+    mode: Mode,
 }
 
 impl<'a> TextField<'a> {
     pub fn new() -> Self {
-        Self { block: None }
+        Self {
+            block: None,
+            mode: Mode::Display,
+        }
     }
 
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self
+    }
+
+    pub fn mode(mut self, mode: Mode) -> Self {
+        self.mode = mode;
         self
     }
 }
@@ -140,12 +140,12 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
             paragraph = paragraph.block(block.clone());
         }
 
-        paragraph = match state.mode {
-            Mode::Display => paragraph.style(Style::default()),
-            Mode::Active => paragraph.style(Style::default()),
-            Mode::Deactive => paragraph.style(Style::default().fg(Color::DarkGray)),
-            Mode::Edit => paragraph.style(Style::default().bold()),
-        };
+        match self.mode {
+            Mode::Display => paragraph = paragraph.style(Style::default().dark_gray()),
+            Mode::Active => paragraph = paragraph.style(Style::default()),
+            Mode::Deactive => paragraph = paragraph.style(Style::default().dark_gray()),
+            Mode::Edit => paragraph = paragraph.style(Style::default().bold()),
+        }
 
         paragraph.render(area, buf);
     }
@@ -157,14 +157,14 @@ pub trait TextFieldFrame {
 
 impl<'a> TextFieldFrame for Frame<'a> {
     fn render_text_field(&mut self, text_field: TextField, area: Rect, state: &mut TextFieldState) {
-        if state.mode.is_edit() {
+        if text_field.mode.is_edit() {
             let cursor_pos = state.cursor_index() as u16;
             let position = Position {
                 x: area.x + cursor_pos + 1,
                 y: area.y + 1,
             };
             self.set_cursor_position(position);
-        };
+        }
 
         self.render_stateful_widget(text_field, area, state);
     }
