@@ -60,7 +60,7 @@ impl Field {
 
 #[derive(Debug)]
 pub struct State {
-    pub selecting_field: Option<Field>,
+    pub selecting_field: Field,
     pub title: TextFieldState,
     pub typ: TypeListState,
 }
@@ -68,28 +68,26 @@ pub struct State {
 impl<'a> State {
     pub fn default() -> Self {
         Self {
-            selecting_field: None,
+            selecting_field: Field::VARIANTS.first().unwrap().clone(),
             title: TextFieldState::default(),
             typ: TypeListState::default().with_selected(Some(0)),
         }
     }
 
     pub fn select_next_field(&mut self) {
-        match &self.selecting_field {
-            None => self.selecting_field = Some(Field::VARIANTS.first().unwrap().clone()),
-            Some(field) => self.selecting_field = field.clone().next(),
-        }
+        self.selecting_field = self
+            .selecting_field
+            .clone()
+            .next()
+            .unwrap_or(Field::VARIANTS.first().unwrap().clone());
     }
 
     pub fn select_previous_field(&mut self) {
-        match &self.selecting_field {
-            None => self.selecting_field = Some(Field::VARIANTS.last().unwrap().clone()),
-            Some(field) => self.selecting_field = field.clone().prev(),
-        }
-    }
-
-    pub fn unselect(&mut self) {
-        self.selecting_field = None;
+        self.selecting_field = self
+            .selecting_field
+            .clone()
+            .prev()
+            .unwrap_or(Field::VARIANTS.last().unwrap().clone());
     }
 }
 
@@ -106,11 +104,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     pub fn render(&mut self) {
         log::info!(
             "Rendering screen, {}",
-            self.state
-                .selecting_field
-                .clone()
-                .map(|f| f.text())
-                .unwrap_or("None".to_string())
+            self.state.selecting_field.clone().text()
         );
 
         let [title_area, typ_area, impact_area] = Layout::vertical([
@@ -131,7 +125,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         let title = TextField::new()
             .block(Block::bordered().title(Field::Title.text()))
             .mode(match self.state.selecting_field {
-                Some(Field::Title) => Mode::Edit,
+                Field::Title => Mode::Edit,
                 _ => Mode::Display,
             });
 
@@ -159,7 +153,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_typ_popup_if_selecting(&mut self, typ_area: Rect) {
-        if self.state.selecting_field != Some(Field::Type) {
+        if self.state.selecting_field != Field::Type {
             return;
         }
 

@@ -47,6 +47,10 @@ impl App {
                     KeyCode::Char('p') => self.on_up(),
                     KeyCode::Char('n') => self.on_down(),
                     KeyCode::Char('h') => self.on_delete(),
+                    KeyCode::Char('b') => self.on_left(),
+                    KeyCode::Char('f') => self.on_right(),
+                    KeyCode::Char('c') => self.quit(),
+                    // KeyCode::Char('s') =>
                     _ => {}
                 }
                 return Ok(());
@@ -54,17 +58,17 @@ impl App {
 
             if key.kind == KeyEventKind::Press {
                 match key.code {
+                    KeyCode::Tab => self.on_tab(),
+                    KeyCode::BackTab => self.on_back_tab(),
                     KeyCode::Up => self.on_up(),
                     KeyCode::Down => self.on_down(),
-                    KeyCode::Char('k') => self.on_k(),
-                    KeyCode::Char('j') => self.on_j(),
                     KeyCode::Left => self.on_left(),
                     KeyCode::Right => self.on_right(),
-                    KeyCode::Char('q') => self.quit(),
-                    KeyCode::Esc => self.on_escape(),
                     KeyCode::Delete | KeyCode::Backspace => self.on_delete(),
                     KeyCode::Enter => self.on_enter(),
-                    KeyCode::Char(c) => self.on_input(c),
+                    KeyCode::Char('k') => self.on_k(),
+                    KeyCode::Char('j') => self.on_j(),
+                    KeyCode::Char(c) => self.on_char(c),
                     _ => {}
                 }
                 return Ok(());
@@ -80,74 +84,78 @@ impl App {
 
     fn on_enter(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.state.select_next_field(),
-            Some(Field::Type) => self.state.select_next_field(),
+            Field::Title => self.state.select_next_field(),
+            Field::Type => self.state.select_next_field(),
             _ => {}
         }
     }
 
+    fn on_tab(&mut self) {
+        self.state.select_next_field();
+    }
+
+    fn on_back_tab(&mut self) {
+        self.state.select_previous_field();
+    }
+
     fn on_left(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.state.title.move_cursor_left(),
+            Field::Title => self.state.title.move_cursor_left(),
             _ => {}
         }
     }
 
     fn on_right(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.state.title.move_cursor_right(),
+            Field::Title => self.state.title.move_cursor_right(),
             _ => {}
         }
     }
 
     fn on_up(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Type) => self.state.typ.select_previous(),
+            Field::Type => self.state.typ.select_previous(),
             _ => self.state.select_previous_field(),
         }
     }
 
     fn on_down(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Type) => self.state.typ.select_next(),
+            Field::Type => self.state.typ.select_next(),
             _ => self.state.select_next_field(),
         }
     }
 
-    fn on_input(&mut self, c: char) {
+    fn on_char(&mut self, c: char) {
         match self.state.selecting_field {
-            Some(Field::Title) => self.state.title.enter_char(c),
+            Field::Title => self.state.title.enter_char(c),
             _ => {}
         }
     }
 
     fn on_delete(&mut self) {
         match self.state.selecting_field {
-            Some(Field::Title) => {
+            Field::Title => {
                 self.state.title.delete_char();
             }
             _ => {}
         }
     }
 
-    fn on_escape(&mut self) {
-        self.state.unselect();
-    }
-
     fn on_k(&mut self) {
-        const k: char = 'k';
+        const K: char = 'k';
 
         match self.state.selecting_field {
-            Some(Field::Title) => self.on_input(k),
+            Field::Title => self.on_char(K),
             _ => self.on_up(),
         }
     }
 
     fn on_j(&mut self) {
-        const j: char = 'j';
+        const J: char = 'j';
 
         match self.state.selecting_field {
-            Some(Field::Title) => self.on_input(j),
+            Field::Title => self.on_char(J),
             _ => self.on_down(),
         }
     }
