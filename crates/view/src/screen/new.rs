@@ -3,17 +3,19 @@ use std::fmt::Display;
 use crate::{
     base::{
         block::AppBlock,
+        frame::AppFrame,
         paragraph::AppParagraph,
         text_field::{Mode, TextField, TextFieldFrame, TextFieldState},
     },
-    case::type_list::{TypeList, TypeListState},
+    case::type_list::{self, TypeList, TypeListState},
     utils::{self, text::Txt},
 };
 use domain::brag::Impact;
 
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    widgets::{Block, BorderType, Clear, Paragraph},
+    style::{Style, Stylize},
+    widgets::{Block, BorderType, Clear, Paragraph, StatefulWidget},
     Frame,
 };
 use strum::{Display, VariantArray};
@@ -139,15 +141,23 @@ impl<'a, 'b> Screen<'a, 'b> {
             None => "Select a type".to_string(),
         };
 
-        let typ =
-            Paragraph::app_default(typ_text).block(Block::bordered().title(Field::Type.text()));
+        let typ = Paragraph::app_default(typ_text)
+            .block(Block::bordered().title(Field::Type.text()))
+            .style(match self.state.selecting_field {
+                Field::Type => Style::default().bold(),
+                _ => Style::default().dark_gray(),
+            });
 
         self.frame.render_widget(typ, area);
     }
 
     fn render_impact(&mut self, area: Rect) {
-        let impact =
-            Paragraph::app_default("yyy").block(Block::bordered().title(Field::Impact.text()));
+        let impact = Paragraph::app_default("yyy")
+            .block(Block::bordered().title(Field::Impact.text()))
+            .style(match self.state.selecting_field {
+                Field::Impact => Style::default().bold(),
+                _ => Style::default().dark_gray(),
+            });
 
         self.frame.render_widget(impact, area);
     }
@@ -159,16 +169,34 @@ impl<'a, 'b> Screen<'a, 'b> {
 
         let typ_list = TypeList::new().block(Block::app_default().border_type(BorderType::Double));
 
-        let popup_area = Rect {
-            x: typ_area.left(),
-            y: typ_area.bottom(),
-            width: typ_area.width,
+        self.render_stateful_popup_below_anchor(typ_list, &mut self.state.typ.clone(), typ_area);
+    }
+
+    // fn render_impact_popup_if_selecting(&mut self, impact_area: Rect) {
+    //     if self.state.selecting_field != Field::Type {
+    //         return;
+    //     }
+
+    //     let typ_list = TypeList::new().block(Block::app_default().border_type(BorderType::Double));
+
+    //     self.render_stateful_popup_below_anchor(typ_list, &mut self.state.typ.clone(), typ_area);
+    // }
+
+    fn render_stateful_popup_below_anchor<W: StatefulWidget>(
+        &mut self,
+        widget: W,
+        state: &mut W::State,
+        anchor: Rect,
+    ) {
+        let area = Rect {
+            x: anchor.left(),
+            y: anchor.bottom(),
+            width: anchor.width,
             height: 8.min(self.frame.area().height),
         };
-        let intersection = popup_area.intersection(self.frame.area());
-        self.frame.render_widget(Clear, intersection);
-        self.frame
-            .render_stateful_widget(typ_list, intersection, &mut self.state.typ);
+        let area = area.intersection(self.frame.area());
+
+        self.frame.render_stateful_popup(widget, area, state);
     }
 }
 
