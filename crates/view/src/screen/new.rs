@@ -132,6 +132,16 @@ impl<'a, 'b> Screen<'a, 'b> {
             .mode(match self.state.selecting_field {
                 Field::Title => Mode::Edit,
                 _ => Mode::Display,
+            })
+            .validator(|text| {
+                if text.is_empty() {
+                    return Some("Required".to_string());
+                }
+                if text.len() > 100 {
+                    return Some("Too long".to_string());
+                }
+
+                None
             });
 
         self.frame
@@ -179,7 +189,7 @@ impl<'a, 'b> Screen<'a, 'b> {
             .highlight_symbol("> ")
             .block(Block::bordered().border_type(BorderType::Double));
 
-        self.render_stateful_popup_below_anchor(list, &mut self.state.typ.clone(), typ_area);
+        self.render_stateful_popup_below_anchor(list, &mut self.state.typ.clone(), typ_area, 8);
     }
 
     fn render_impact_popup_if_selecting(&mut self, impact_area: Rect) {
@@ -197,7 +207,12 @@ impl<'a, 'b> Screen<'a, 'b> {
             .highlight_symbol("> ")
             .block(Block::bordered().border_type(BorderType::Double));
 
-        self.render_stateful_popup_below_anchor(list, &mut self.state.impact.clone(), impact_area);
+        self.render_stateful_popup_below_anchor(
+            list,
+            &mut self.state.impact.clone(),
+            impact_area,
+            7,
+        );
     }
 
     fn render_stateful_popup_below_anchor<W: StatefulWidget>(
@@ -205,12 +220,13 @@ impl<'a, 'b> Screen<'a, 'b> {
         widget: W,
         state: &mut W::State,
         anchor: Rect,
+        max_height: u16,
     ) {
         let area = Rect {
             x: anchor.left(),
             y: anchor.bottom(),
             width: anchor.width,
-            height: 8.min(self.frame.area().height),
+            height: max_height.min(self.frame.area().height),
         };
         let area = area.intersection(self.frame.area());
 

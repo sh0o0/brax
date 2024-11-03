@@ -2,6 +2,7 @@ use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
     style::{Style, Stylize},
+    text::Text,
     widgets::{Block, Paragraph, StatefulWidget, StatefulWidgetRef, Widget},
     Frame,
 };
@@ -10,6 +11,7 @@ use ratatui::{
 pub struct TextFieldState {
     text: String,
     cursor_index: usize,
+    has_entered: bool,
 }
 
 impl<'a> TextFieldState {
@@ -18,7 +20,11 @@ impl<'a> TextFieldState {
     }
 
     fn new(text: String, cursor_index: usize) -> Self {
-        Self { text, cursor_index }
+        Self {
+            text,
+            cursor_index,
+            has_entered: false,
+        }
     }
 
     pub fn text(&self) -> &str {
@@ -40,6 +46,10 @@ impl<'a> TextFieldState {
     }
 
     pub fn enter_char(&mut self, new_char: char) {
+        if !self.has_entered {
+            self.has_entered = true;
+        }
+
         let index = self.byte_index();
         self.text.insert(index, new_char);
         self.move_cursor_right();
@@ -88,6 +98,8 @@ impl<'a> TextFieldState {
     }
 }
 
+pub type Validator = fn(String) -> Option<String>;
+
 #[derive(Debug, strum::EnumIs)]
 pub enum Mode {
     Display,
@@ -98,6 +110,7 @@ pub enum Mode {
 
 pub struct TextField<'a> {
     block: Option<Block<'a>>,
+    validator: Option<Validator>,
     mode: Mode,
 }
 
@@ -105,12 +118,18 @@ impl<'a> TextField<'a> {
     pub fn new() -> Self {
         Self {
             block: None,
+            validator: None,
             mode: Mode::Display,
         }
     }
 
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self
+    }
+
+    pub fn validator(mut self, validator: Validator) -> Self {
+        self.validator = Some(validator);
         self
     }
 
@@ -132,20 +151,33 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
     type State = TextFieldState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut TextFieldState) {
-        let mut paragraph = Paragraph::new(state.text());
+        let mut paragraph = Paragraph::new(state.text()).style(match self.mode {
+            Mode::Display => Style::default().dark_gray(),
+            Mode::Active => Style::default(),
+            Mode::Deactive => Style::default().dark_gray(),
+            Mode::Edit => Style::default().bold(),
+        });
 
-        if let Some(block) = &self.block {
-            paragraph = paragraph.block(block.clone());
+        let mut block = match self.block.clone() {
+            Some(block) => block,
+            None => Block::default(),
+        };
+
+        if state.has_entered {
+            if let Some(validator) = self.validator {
+                let text = state.text().to_string();
+                let validated_text = validator(text);
+                match validated_text {
+                    Some(validated_text) => {
+                        block = block.title_bottom(validated_text.not_bold());
+                        paragraph = paragraph.red();
+                    }
+                    None => {}
+                }
+            }
         }
 
-        match self.mode {
-            Mode::Display => paragraph = paragraph.style(Style::default().dark_gray()),
-            Mode::Active => paragraph = paragraph.style(Style::default()),
-            Mode::Deactive => paragraph = paragraph.style(Style::default().dark_gray()),
-            Mode::Edit => paragraph = paragraph.style(Style::default().bold()),
-        }
-
-        paragraph.render(area, buf);
+        paragraph.block(block).render(area, buf);
     }
 }
 
