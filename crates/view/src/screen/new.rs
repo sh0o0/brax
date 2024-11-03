@@ -12,7 +12,7 @@ use domain::brag::{Impact, Type};
 
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    style::{Style, Stylize},
+    style::{Style, Styled, Stylize},
     text::{self, Span, Text},
     widgets::{Block, BorderType, ListItem, Paragraph, StatefulWidget},
     Frame,
@@ -21,12 +21,13 @@ use regex::Regex;
 use strum::{EnumCount, VariantArray};
 
 #[derive(Debug, PartialEq, Eq, Clone, strum::VariantArray)]
-pub enum Field {
+pub enum SelectableField {
     Title,
     Type,
     Impact,
     StartDate,
     EndDate,
+    Advanced,
     // Organization,
     // Skills,
     // Languages,
@@ -34,17 +35,20 @@ pub enum Field {
     // Position,
 }
 
-impl Field {
+impl SelectableField {
     fn idx(self) -> usize {
-        Field::VARIANTS.iter().position(|f| *f == self).unwrap()
+        SelectableField::VARIANTS
+            .iter()
+            .position(|f| *f == self)
+            .unwrap()
     }
 
     fn next(self) -> Option<Self> {
         let index = self.idx();
-        if index == Field::VARIANTS.len() - 1 {
+        if index == SelectableField::VARIANTS.len() - 1 {
             None
         } else {
-            Some(Field::VARIANTS[index + 1].clone())
+            Some(SelectableField::VARIANTS[index + 1].clone())
         }
     }
 
@@ -53,14 +57,16 @@ impl Field {
         if index == 0 {
             None
         } else {
-            Some(Field::VARIANTS[index - 1].clone())
+            Some(SelectableField::VARIANTS[index - 1].clone())
         }
     }
 }
 
 #[derive(Debug)]
 pub struct State {
-    pub selecting_field: Field,
+    pub selecting_field: SelectableField,
+    pub is_expand_advanced: bool,
+
     pub title: TextFieldState,
     pub typ: LoopListState,
     pub impact: LoopListState,
@@ -75,7 +81,8 @@ impl<'a> State {
         start_date.set_text(chrono::Local::now().naive_local().date().to_string());
 
         Self {
-            selecting_field: Field::VARIANTS.first().unwrap().clone(),
+            selecting_field: SelectableField::VARIANTS.first().unwrap().clone(),
+            is_expand_advanced: false,
             title: TextFieldState::default(),
             typ: LoopListState::default(Type::COUNT).with_selected(Some(0)),
             impact: LoopListState::default(Impact::COUNT).with_selected(Some(0)),
@@ -90,7 +97,7 @@ impl<'a> State {
             .selecting_field
             .clone()
             .next()
-            .unwrap_or(Field::VARIANTS.first().unwrap().clone());
+            .unwrap_or(SelectableField::VARIANTS.first().unwrap().clone());
     }
 
     pub fn select_previous_field(&mut self) {
@@ -98,7 +105,11 @@ impl<'a> State {
             .selecting_field
             .clone()
             .prev()
-            .unwrap_or(Field::VARIANTS.last().unwrap().clone());
+            .unwrap_or(SelectableField::VARIANTS.last().unwrap().clone());
+    }
+
+    pub fn toggle_expand_advanced(&mut self) {
+        self.is_expand_advanced = !self.is_expand_advanced;
     }
 }
 
@@ -118,13 +129,17 @@ impl<'a, 'b> Screen<'a, 'b> {
             self.state.selecting_field.clone().text()
         );
 
-        let [title_area, typ_area, impact_area, start_date_area, end_date_area, content_area, commands_area] =
+        let [title_area, typ_area, impact_area, start_date_area, end_date_area, advanced_area, content_area, commands_area] =
             Layout::vertical([
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
+                match self.state.is_expand_advanced {
+                    true => Constraint::Max(10),
+                    false => Constraint::Length(1),
+                },
                 Constraint::Fill(1),
                 Constraint::Length(2),
             ])
@@ -135,6 +150,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         self.render_impact(impact_area);
         self.render_start_date(start_date_area);
         self.render_end_date(end_date_area);
+        self.render_advanced(advanced_area);
         self.render_content(content_area);
         self.render_commands(commands_area);
 
@@ -144,9 +160,9 @@ impl<'a, 'b> Screen<'a, 'b> {
 
     fn render_title(&mut self, area: Rect) {
         let title = TextField::new()
-            .block(Block::bordered().title(Field::Title.text()))
+            .block(Block::bordered().title(SelectableField::Title.text()))
             .mode(match self.state.selecting_field {
-                Field::Title => Mode::Edit,
+                SelectableField::Title => Mode::Edit,
                 _ => Mode::Display,
             })
             .validator(|text| {
@@ -171,9 +187,9 @@ impl<'a, 'b> Screen<'a, 'b> {
         };
 
         let typ = Paragraph::app_default(typ_text)
-            .block(Block::bordered().title(Field::Type.text()))
+            .block(Block::bordered().title(SelectableField::Type.text()))
             .style(match self.state.selecting_field {
-                Field::Type => Style::default().bold(),
+                SelectableField::Type => Style::default().bold(),
                 _ => Style::default().gray(),
             });
 
@@ -191,9 +207,9 @@ impl<'a, 'b> Screen<'a, 'b> {
             None => "Select an impact".to_string(),
         };
         let impact = Paragraph::app_default(impact_text)
-            .block(Block::bordered().title(Field::Impact.text()))
+            .block(Block::bordered().title(SelectableField::Impact.text()))
             .style(match self.state.selecting_field {
-                Field::Impact => Style::default().bold(),
+                SelectableField::Impact => Style::default().bold(),
                 _ => Style::default().gray(),
             });
 
@@ -202,9 +218,9 @@ impl<'a, 'b> Screen<'a, 'b> {
 
     fn render_start_date(&mut self, area: Rect) {
         let start_date = TextField::new()
-            .block(Block::bordered().title(Field::StartDate.text()))
+            .block(Block::bordered().title(SelectableField::StartDate.text()))
             .mode(match self.state.selecting_field {
-                Field::StartDate => Mode::Edit,
+                SelectableField::StartDate => Mode::Edit,
                 _ => Mode::Display,
             })
             .helper("2024, 2024-01, 2024-01-01".into())
@@ -226,9 +242,9 @@ impl<'a, 'b> Screen<'a, 'b> {
 
     fn render_end_date(&mut self, area: Rect) {
         let end_date = TextField::new()
-            .block(Block::bordered().title(Field::EndDate.text()))
+            .block(Block::bordered().title(SelectableField::EndDate.text()))
             .mode(match self.state.selecting_field {
-                Field::EndDate => Mode::Edit,
+                SelectableField::EndDate => Mode::Edit,
                 _ => Mode::Display,
             })
             .helper("2024, 2024-01, 2024-01-01".into())
@@ -247,6 +263,19 @@ impl<'a, 'b> Screen<'a, 'b> {
             .render_text_field(end_date, area, &mut self.state.end_date);
     }
 
+    fn render_advanced(&mut self, area: Rect) {
+        let advanced = match self.state.is_expand_advanced {
+            true => Paragraph::new("\u{25bc} Advanced"),
+            false => Paragraph::new("\u{25b6} Advanced"),
+        }
+        .style(match self.state.selecting_field {
+            SelectableField::Advanced => Style::default().bold(),
+            _ => Style::default().gray(),
+        });
+
+        self.frame.render_widget(advanced, area);
+    }
+
     fn render_content(&mut self, area: Rect) {
         let content = Paragraph::new(self.state.content.to_string()).block(Block::bordered());
 
@@ -260,7 +289,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_typ_popup_if_selecting(&mut self, typ_area: Rect) {
-        if self.state.selecting_field != Field::Type {
+        if self.state.selecting_field != SelectableField::Type {
             return;
         }
 
@@ -277,7 +306,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_impact_popup_if_selecting(&mut self, impact_area: Rect) {
-        if self.state.selecting_field != Field::Impact {
+        if self.state.selecting_field != SelectableField::Impact {
             return;
         }
 
@@ -318,14 +347,15 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 }
 
-impl utils::text::Txt for Field {
+impl utils::text::Txt for SelectableField {
     fn text(&self) -> String {
         match self {
-            Field::Title => "Title".to_string(),
-            Field::Type => "Type".to_string(),
-            Field::Impact => "Impact".to_string(),
-            Field::StartDate => "Start Date".to_string(),
-            Field::EndDate => "End Date".to_string(),
+            SelectableField::Title => "Title".to_string(),
+            SelectableField::Type => "Type".to_string(),
+            SelectableField::Impact => "Impact".to_string(),
+            SelectableField::StartDate => "Start Date".to_string(),
+            SelectableField::EndDate => "End Date".to_string(),
+            SelectableField::Advanced => "".to_string(),
         }
     }
 }

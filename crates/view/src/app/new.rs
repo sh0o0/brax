@@ -1,6 +1,6 @@
 use crate::{
     base::frame,
-    screen::new::{Field, Screen, State},
+    screen::new::{Screen, SelectableField, State},
     utils,
 };
 
@@ -100,7 +100,10 @@ impl App {
     }
 
     fn on_enter(&mut self) {
-        self.state.select_next_field();
+        match self.state.selecting_field {
+            SelectableField::Advanced => self.state.toggle_expand_advanced(),
+            _ => self.state.select_next_field(),
+        }
     }
 
     fn on_tab(&mut self) {
@@ -113,52 +116,52 @@ impl App {
 
     fn on_left(&mut self) {
         match self.state.selecting_field {
-            Field::Title => self.state.title.move_cursor_left(),
-            Field::StartDate => self.state.start_date.move_cursor_left(),
-            Field::EndDate => self.state.end_date.move_cursor_left(),
+            SelectableField::Title => self.state.title.move_cursor_left(),
+            SelectableField::StartDate => self.state.start_date.move_cursor_left(),
+            SelectableField::EndDate => self.state.end_date.move_cursor_left(),
             _ => {}
         }
     }
 
     fn on_right(&mut self) {
         match self.state.selecting_field {
-            Field::Title => self.state.title.move_cursor_right(),
-            Field::StartDate => self.state.start_date.move_cursor_right(),
-            Field::EndDate => self.state.end_date.move_cursor_right(),
+            SelectableField::Title => self.state.title.move_cursor_right(),
+            SelectableField::StartDate => self.state.start_date.move_cursor_right(),
+            SelectableField::EndDate => self.state.end_date.move_cursor_right(),
             _ => {}
         }
     }
 
     fn on_up(&mut self) {
         match self.state.selecting_field {
-            Field::Type => self.state.typ.select_previous(),
-            Field::Impact => self.state.impact.select_previous(),
+            SelectableField::Type => self.state.typ.select_previous(),
+            SelectableField::Impact => self.state.impact.select_previous(),
             _ => self.state.select_previous_field(),
         }
     }
 
     fn on_down(&mut self) {
         match self.state.selecting_field {
-            Field::Type => self.state.typ.select_next(),
-            Field::Impact => self.state.impact.select_next(),
+            SelectableField::Type => self.state.typ.select_next(),
+            SelectableField::Impact => self.state.impact.select_next(),
             _ => self.state.select_next_field(),
         }
     }
 
     fn on_char(&mut self, c: char) {
         match self.state.selecting_field {
-            Field::Title => self.state.title.enter_char(c),
-            Field::StartDate => self.state.start_date.enter_char(c),
-            Field::EndDate => self.state.end_date.enter_char(c),
+            SelectableField::Title => self.state.title.enter_char(c),
+            SelectableField::StartDate => self.state.start_date.enter_char(c),
+            SelectableField::EndDate => self.state.end_date.enter_char(c),
             _ => {}
         }
     }
 
     fn on_delete(&mut self) {
         match self.state.selecting_field {
-            Field::Title => self.state.title.delete_char(),
-            Field::StartDate => self.state.start_date.delete_char(),
-            Field::EndDate => self.state.end_date.delete_char(),
+            SelectableField::Title => self.state.title.delete_char(),
+            SelectableField::StartDate => self.state.start_date.delete_char(),
+            SelectableField::EndDate => self.state.end_date.delete_char(),
             _ => {}
         }
     }
@@ -167,7 +170,7 @@ impl App {
         const K: char = 'k';
 
         match self.state.selecting_field {
-            Field::Type | Field::Impact => self.on_up(),
+            SelectableField::Type | SelectableField::Impact => self.on_up(),
             _ => self.on_char(K),
         }
     }
@@ -176,7 +179,7 @@ impl App {
         const J: char = 'j';
 
         match self.state.selecting_field {
-            Field::Type | Field::Impact => self.on_down(),
+            SelectableField::Type | SelectableField::Impact => self.on_down(),
             _ => self.on_char(J),
         }
     }
