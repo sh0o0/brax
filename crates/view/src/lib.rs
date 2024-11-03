@@ -1,6 +1,7 @@
 mod app;
 mod base;
 mod case;
+mod config;
 mod screen;
 mod utils;
 

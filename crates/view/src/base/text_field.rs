@@ -1,3 +1,4 @@
+use crate::config::colors::COLORS;
 use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
@@ -11,7 +12,7 @@ use ratatui::{
 pub struct TextFieldState {
     text: String,
     cursor_index: usize,
-    has_entered: bool,
+    has_modified: bool,
 }
 
 impl<'a> TextFieldState {
@@ -23,7 +24,7 @@ impl<'a> TextFieldState {
         Self {
             text,
             cursor_index,
-            has_entered: false,
+            has_modified: false,
         }
     }
 
@@ -51,8 +52,8 @@ impl<'a> TextFieldState {
     }
 
     pub fn enter_char(&mut self, new_char: char) {
-        if !self.has_entered {
-            self.has_entered = true;
+        if !self.has_modified {
+            self.has_modified = true;
         }
 
         let index = self.byte_index();
@@ -73,6 +74,10 @@ impl<'a> TextFieldState {
     }
 
     pub fn delete_char(&mut self) {
+        if !self.has_modified {
+            self.has_modified = true;
+        }
+
         let is_not_cursor_leftmost = self.cursor_index != 0;
         if is_not_cursor_leftmost {
             // Method "remove" is not used on the saved text for deleting the selected char.
@@ -108,8 +113,6 @@ pub type Validator = fn(String) -> Option<String>;
 #[derive(Debug, strum::EnumIs)]
 pub enum Mode {
     Display,
-    Active,
-    Deactive,
     Edit,
 }
 
@@ -165,13 +168,11 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut TextFieldState) {
         let mut paragraph = Paragraph::new(match state.text() {
             "" => self.helper.clone().unwrap_or_default().dark_gray(),
-            text => text.into(),
+            text => text.gray().into(),
         })
         .style(match self.mode {
-            Mode::Display => Style::default().dark_gray(),
-            Mode::Active => Style::default(),
-            Mode::Deactive => Style::default().dark_gray(),
-            Mode::Edit => Style::default().bold(),
+            Mode::Display => Style::default(),
+            Mode::Edit => Style::default().fg(COLORS.primary),
         });
 
         let mut block = match self.block.clone() {
@@ -179,7 +180,7 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
             None => Block::default(),
         };
 
-        if state.has_entered {
+        if state.has_modified {
             if let Some(validator) = self.validator {
                 let text = state.text().to_string();
                 let validated_text = validator(text);

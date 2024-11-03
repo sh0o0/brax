@@ -2,19 +2,19 @@ use std::ops::Index;
 
 use crate::{
     base::{
-        frame::AppFrame,
         loop_list::{LoopList, LoopListState},
         text_field::{Mode, TextField, TextFieldFrame, TextFieldState},
     },
+    config::colors::COLORS,
     utils::{self, text::Txt},
 };
 use domain::brag::{Impact, Type};
 
 use ratatui::{
-    layout::{Constraint, Layout, Rect},
-    style::{Style, Styled, Stylize},
-    text::{self, Span, Text},
-    widgets::{Block, BorderType, ListItem, Paragraph, StatefulWidget},
+    layout::{Constraint, Layout, Offset, Rect},
+    style::{Style, Stylize},
+    text::{self, Span},
+    widgets::{Block, BorderType, Clear, ListItem, Paragraph, StatefulWidget},
     Frame,
 };
 use regex::Regex;
@@ -186,10 +186,10 @@ impl<'a, 'b> Screen<'a, 'b> {
             None => "Select a type".to_string(),
         };
 
-        let typ = Paragraph::app_default(typ_text)
+        let typ = Paragraph::new(typ_text.gray())
             .block(Block::bordered().title(SelectableField::Type.text()))
             .style(match self.state.selecting_field {
-                SelectableField::Type => Style::default().bold(),
+                SelectableField::Type => Style::default().fg(COLORS.primary),
                 _ => Style::default().gray(),
             });
 
@@ -205,11 +205,13 @@ impl<'a, 'b> Screen<'a, 'b> {
         {
             Some(impact) => impact.text(),
             None => "Select an impact".to_string(),
-        };
-        let impact = Paragraph::app_default(impact_text)
+        }
+        .gray();
+
+        let impact = Paragraph::new(impact_text)
             .block(Block::bordered().title(SelectableField::Impact.text()))
             .style(match self.state.selecting_field {
-                SelectableField::Impact => Style::default().bold(),
+                SelectableField::Impact => Style::default().fg(COLORS.primary),
                 _ => Style::default().gray(),
             });
 
@@ -264,27 +266,53 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_advanced(&mut self, area: Rect) {
-        let advanced = match self.state.is_expand_advanced {
-            true => Paragraph::new("\u{25bc} Advanced"),
-            false => Paragraph::new("\u{25b6} Advanced"),
-        }
-        .style(match self.state.selecting_field {
-            SelectableField::Advanced => Style::default().bold(),
-            _ => Style::default().gray(),
-        });
+        let style = match self.state.selecting_field {
+            SelectableField::Advanced => Style::default().fg(COLORS.primary),
+            _ => Style::default(),
+        };
 
-        self.frame.render_widget(advanced, area);
+        if !self.state.is_expand_advanced {
+            let advanced = Paragraph::new("\u{25b6} Advanced").style(style);
+            self.frame.render_widget(advanced, area);
+            return;
+        }
+
+        let [advanced_area, fields_area] =
+            Layout::vertical([Constraint::Length(1), Constraint::default()]).areas(area);
+        let [_, fields_area] =
+            Layout::horizontal([Constraint::Length(1), Constraint::default()]).areas(fields_area);
+
+        let advanced = Paragraph::new("\u{25bc} Advanced").style(style);
+
+        self.frame.render_widget(advanced, advanced_area);
+        self.render_advanced_fields(fields_area);
+    }
+
+    fn render_advanced_fields(&mut self, area: Rect) {
+        let [organization_area] = Layout::vertical([Constraint::Max(3)]).areas(area);
+
+        let organization = TextField::new()
+            .block(Block::bordered().title("Organization"))
+            .mode(match self.state.selecting_field {
+                SelectableField::Advanced => Mode::Edit,
+                _ => Mode::Display,
+            });
+
+        self.frame.render_text_field(
+            organization,
+            organization_area,
+            &mut TextFieldState::default(),
+        );
     }
 
     fn render_content(&mut self, area: Rect) {
-        let content = Paragraph::new(self.state.content.to_string()).block(Block::bordered());
+        let content = Paragraph::new(self.state.content.to_string());
 
         self.frame.render_widget(content, area);
     }
 
     fn render_commands(&mut self, area: Rect) {
-        let commands =
-            Paragraph::app_default("Edit Content: CTRL + E | Save: CTRL + S | Cancel: CTRL + C");
+        let commands = Paragraph::new("Edit Content: CTRL + E | Save: CTRL + S | Cancel: CTRL + C");
         self.frame.render_widget(commands, area);
     }
 
@@ -300,7 +328,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         let list = LoopList::new(items)
             .highlight_style(Style::default().bold())
             .highlight_symbol("> ")
-            .block(Block::bordered().border_type(BorderType::Double));
+            .block(Block::popup());
 
         self.render_stateful_popup_below_anchor(list, &mut self.state.typ.clone(), typ_area, 8);
     }
@@ -318,7 +346,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         let list = LoopList::new(items)
             .highlight_style(Style::default().bold())
             .highlight_symbol("> ")
-            .block(Block::bordered().border_type(BorderType::Double));
+            .block(Block::popup());
 
         self.render_stateful_popup_below_anchor(
             list,
@@ -335,15 +363,18 @@ impl<'a, 'b> Screen<'a, 'b> {
         anchor: Rect,
         max_height: u16,
     ) {
-        let area = Rect {
-            x: anchor.left(),
-            y: anchor.bottom(),
-            width: anchor.width,
-            height: max_height.min(self.frame.area().height),
-        };
+        let area = Rect::new(
+            anchor.left(),
+            anchor.bottom(),
+            anchor.width,
+            max_height.min(self.frame.area().height),
+        );
         let area = area.intersection(self.frame.area());
+        let indented_area = area.offset(Offset { x: 1, y: 0 }).intersection(area);
 
-        self.frame.render_stateful_popup(widget, area, state);
+        self.frame.render_widget(Clear, area);
+        self.frame
+            .render_stateful_widget(widget, indented_area, state);
     }
 }
 
@@ -386,26 +417,12 @@ impl utils::text::Txt for Impact {
 }
 
 trait BlockExt<'a> {
-    fn app_default() -> Block<'a> {
-        Block::bordered()
-    }
     fn popup() -> Block<'a> {
         Block::bordered().border_type(BorderType::Double)
     }
 }
 
 impl<'a> BlockExt<'a> for Block<'a> {}
-
-trait ParagraphExt<'a> {
-    fn app_default<T>(text: T) -> Paragraph<'a>
-    where
-        T: Into<Text<'a>>,
-    {
-        Paragraph::new(text)
-    }
-}
-
-impl<'a> ParagraphExt<'a> for Paragraph<'a> {}
 
 lazy_static::lazy_static! {
     static ref DATE_REGEX: Regex = Regex::new(r"^\d{4}(-\d{2}(-\d{2})?)?$").unwrap();
