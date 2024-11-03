@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq, strum::VariantArray, Clone)]
+#[derive(Debug, PartialEq, Eq, strum::VariantArray, strum::EnumCount, Clone)]
 pub enum Type {
     Project,
     CollaborationAndMembership,
@@ -8,7 +8,7 @@ pub enum Type {
     OutsideOfWork,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, strum::VariantArray, strum::EnumCount, Clone)]
 pub enum Impact {
     Trivial,
     Ordinary,

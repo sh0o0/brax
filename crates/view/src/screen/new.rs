@@ -1,24 +1,24 @@
-use std::fmt::Display;
+use std::ops::Index;
 
 use crate::{
     base::{
-        block::AppBlock,
         frame::AppFrame,
-        paragraph::AppParagraph,
+        loop_list::{LoopList, LoopListState},
         text_field::{Mode, TextField, TextFieldFrame, TextFieldState},
     },
-    case::type_list::{self, TypeList, TypeListState},
     utils::{self, text::Txt},
 };
-use domain::brag::Impact;
+use crossterm::style::style;
+use domain::brag::{Impact, Type};
 
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
-    widgets::{Block, BorderType, Clear, Paragraph, StatefulWidget},
+    text::{self, Span, Text},
+    widgets::{Block, BorderType, ListItem, Paragraph, StatefulWidget},
     Frame,
 };
-use strum::{Display, VariantArray};
+use strum::{EnumCount, VariantArray};
 
 #[derive(Debug, PartialEq, Eq, Clone, strum::VariantArray)]
 pub enum Field {
@@ -64,7 +64,8 @@ impl Field {
 pub struct State {
     pub selecting_field: Field,
     pub title: TextFieldState,
-    pub typ: TypeListState,
+    pub typ: LoopListState,
+    pub impact: LoopListState,
 }
 
 impl<'a> State {
@@ -72,7 +73,8 @@ impl<'a> State {
         Self {
             selecting_field: Field::VARIANTS.first().unwrap().clone(),
             title: TextFieldState::default(),
-            typ: TypeListState::default().with_selected(Some(0)),
+            typ: LoopListState::default(Type::COUNT).with_selected(Some(0)),
+            impact: LoopListState::default(Impact::COUNT).with_selected(Some(0)),
         }
     }
 
@@ -121,6 +123,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         self.render_impact(impact_area);
 
         self.render_typ_popup_if_selecting(typ_area);
+        self.render_impact_popup_if_selecting(impact_area);
     }
 
     fn render_title(&mut self, area: Rect) {
@@ -136,7 +139,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_typ(&mut self, area: Rect) {
-        let typ_text = match self.state.typ.selected_type() {
+        let typ_text = match self.state.typ.selected.map(|i| Type::VARIANTS.index(i)) {
             Some(typ) => typ.text(),
             None => "Select a type".to_string(),
         };
@@ -167,20 +170,35 @@ impl<'a, 'b> Screen<'a, 'b> {
             return;
         }
 
-        let typ_list = TypeList::new().block(Block::app_default().border_type(BorderType::Double));
+        let items = Type::VARIANTS
+            .iter()
+            .map(|t| ListItem::new(vec![text::Line::from(Span::raw(t.text()))]))
+            .collect::<Vec<_>>();
+        let list = LoopList::new(items)
+            .highlight_style(Style::default().bold())
+            .highlight_symbol("> ")
+            .block(Block::bordered().border_type(BorderType::Double));
 
-        self.render_stateful_popup_below_anchor(typ_list, &mut self.state.typ.clone(), typ_area);
+        self.render_stateful_popup_below_anchor(list, &mut self.state.typ.clone(), typ_area);
     }
 
-    // fn render_impact_popup_if_selecting(&mut self, impact_area: Rect) {
-    //     if self.state.selecting_field != Field::Type {
-    //         return;
-    //     }
+    fn render_impact_popup_if_selecting(&mut self, impact_area: Rect) {
+        if self.state.selecting_field != Field::Impact {
+            return;
+        }
 
-    //     let typ_list = TypeList::new().block(Block::app_default().border_type(BorderType::Double));
+        let items = Impact::VARIANTS
+            .iter()
+            .map(|i| ListItem::new(vec![text::Line::from(Span::raw(i.text()))]))
+            .collect::<Vec<_>>();
 
-    //     self.render_stateful_popup_below_anchor(typ_list, &mut self.state.typ.clone(), typ_area);
-    // }
+        let list = LoopList::new(items)
+            .highlight_style(Style::default().bold())
+            .highlight_symbol("> ")
+            .block(Block::bordered().border_type(BorderType::Double));
+
+        self.render_stateful_popup_below_anchor(list, &mut self.state.impact.clone(), impact_area);
+    }
 
     fn render_stateful_popup_below_anchor<W: StatefulWidget>(
         &mut self,
@@ -219,6 +237,19 @@ impl utils::text::Txt for Field {
     }
 }
 
+impl utils::text::Txt for Type {
+    fn text(&self) -> String {
+        match self {
+            Type::Project => "Project".to_string(),
+            Type::CollaborationAndMembership => "Collaboration and Membership".to_string(),
+            Type::DesignAndDocumentation => "Design and Documentation".to_string(),
+            Type::CompanyBuilding => "Company Building".to_string(),
+            Type::Learning => "Learning".to_string(),
+            Type::OutsideOfWork => "Outside of Work".to_string(),
+        }
+    }
+}
+
 impl utils::text::Txt for Impact {
     fn text(&self) -> String {
         match self {
@@ -230,3 +261,25 @@ impl utils::text::Txt for Impact {
         }
     }
 }
+
+trait BlockExt<'a> {
+    fn app_default() -> Block<'a> {
+        Block::bordered()
+    }
+    fn popup() -> Block<'a> {
+        Block::bordered().border_type(BorderType::Double)
+    }
+}
+
+impl<'a> BlockExt<'a> for Block<'a> {}
+
+trait ParagraphExt<'a> {
+    fn app_default<T>(text: T) -> Paragraph<'a>
+    where
+        T: Into<Text<'a>>,
+    {
+        Paragraph::new(text)
+    }
+}
+
+impl<'a> ParagraphExt<'a> for Paragraph<'a> {}

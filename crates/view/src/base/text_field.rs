@@ -6,8 +6,6 @@ use ratatui::{
     Frame,
 };
 
-use crate::base::paragraph::AppParagraph;
-
 #[derive(Debug)]
 pub struct TextFieldState {
     text: String,
@@ -134,7 +132,7 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
     type State = TextFieldState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut TextFieldState) {
-        let mut paragraph = Paragraph::app_default(state.text());
+        let mut paragraph = Paragraph::new(state.text());
 
         if let Some(block) = &self.block {
             paragraph = paragraph.block(block.clone());

@@ -86,6 +86,7 @@ impl App {
         match self.state.selecting_field {
             Field::Title => self.state.select_next_field(),
             Field::Type => self.state.select_next_field(),
+            Field::Impact => self.state.select_next_field(),
             _ => {}
         }
     }
@@ -115,6 +116,7 @@ impl App {
     fn on_up(&mut self) {
         match self.state.selecting_field {
             Field::Type => self.state.typ.select_previous(),
+            Field::Impact => self.state.impact.select_previous(),
             _ => self.state.select_previous_field(),
         }
     }
@@ -122,6 +124,7 @@ impl App {
     fn on_down(&mut self) {
         match self.state.selecting_field {
             Field::Type => self.state.typ.select_next(),
+            Field::Impact => self.state.impact.select_next(),
             _ => self.state.select_next_field(),
         }
     }
