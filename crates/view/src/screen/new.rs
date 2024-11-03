@@ -30,10 +30,8 @@ pub enum Field {
     // Organization,
     // Skills,
     // Languages,
-    // Type,
     // Url,
     // Position,
-    // Content,
 }
 
 impl Field {
@@ -120,7 +118,7 @@ impl<'a, 'b> Screen<'a, 'b> {
             self.state.selecting_field.clone().text()
         );
 
-        let [title_area, typ_area, impact_area, start_date_area, end_date_area, content_area] =
+        let [title_area, typ_area, impact_area, start_date_area, end_date_area, content_area, commands_area] =
             Layout::vertical([
                 Constraint::Length(3),
                 Constraint::Length(3),
@@ -128,6 +126,7 @@ impl<'a, 'b> Screen<'a, 'b> {
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Fill(1),
+                Constraint::Length(2),
             ])
             .areas(self.frame.area());
 
@@ -136,6 +135,8 @@ impl<'a, 'b> Screen<'a, 'b> {
         self.render_impact(impact_area);
         self.render_start_date(start_date_area);
         self.render_end_date(end_date_area);
+        self.render_content(content_area);
+        self.render_commands(commands_area);
 
         self.render_typ_popup_if_selecting(typ_area);
         self.render_impact_popup_if_selecting(impact_area);
@@ -246,6 +247,18 @@ impl<'a, 'b> Screen<'a, 'b> {
             .render_text_field(end_date, area, &mut self.state.end_date);
     }
 
+    fn render_content(&mut self, area: Rect) {
+        let content = Paragraph::new(self.state.content.to_string()).block(Block::bordered());
+
+        self.frame.render_widget(content, area);
+    }
+
+    fn render_commands(&mut self, area: Rect) {
+        let commands =
+            Paragraph::app_default("Edit Content: CTRL + E | Save: CTRL + S | Cancel: CTRL + C");
+        self.frame.render_widget(commands, area);
+    }
+
     fn render_typ_popup_if_selecting(&mut self, typ_area: Rect) {
         if self.state.selecting_field != Field::Type {
             return;
@@ -313,15 +326,6 @@ impl utils::text::Txt for Field {
             Field::Impact => "Impact".to_string(),
             Field::StartDate => "Start Date".to_string(),
             Field::EndDate => "End Date".to_string(),
-            // Field::Organization => "Organization".to_string(),
-            // Field::Skills => "Skills".to_string(),
-            // Field::Languages => "Languages".to_string(),
-            // Field::StartDate => "Start Date".to_string(),
-            // Field::EndDate => "End Date".to_string(),
-            // Field::Type => "Type".to_string(),
-            // Field::Url => "URL".to_string(),
-            // Field::Position => "Position".to_string(),
-            // Field::Content => "Content".to_string(),
         }
     }
 }

@@ -1,7 +1,12 @@
-use crate::screen::new::{Field, Screen, State};
+use crate::{
+    base::frame,
+    screen::new::{Field, Screen, State},
+    utils,
+};
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use ratatui::{prelude::Backend, Terminal};
+use domain::error::{Error, Result};
+use ratatui::{backend, prelude::Backend, Terminal};
 use std::time::{Duration, Instant};
 
 pub struct App {
@@ -30,13 +35,17 @@ impl App {
             })?;
 
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
-            self.handle_event(timeout)?;
+            self.handle_event(timeout, terminal)?;
         }
 
         Ok(())
     }
 
-    fn handle_event(&mut self, timeout: Duration) -> util::error::Result<()> {
+    fn handle_event<B: Backend>(
+        &mut self,
+        timeout: Duration,
+        terminal: &mut Terminal<B>,
+    ) -> util::error::Result<()> {
         if !event::poll(timeout)? {
             return Ok(());
         }
@@ -50,7 +59,7 @@ impl App {
                     KeyCode::Char('b') => self.on_left(),
                     KeyCode::Char('f') => self.on_right(),
                     KeyCode::Char('c') => self.quit(),
-                    // KeyCode::Char('s') =>
+                    KeyCode::Char('e') => self.edit_content(terminal)?,
                     _ => {}
                 }
                 return Ok(());
@@ -80,6 +89,14 @@ impl App {
 
     fn quit(&mut self) {
         self.should_quit = true;
+    }
+
+    fn edit_content<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> util::error::Result<()> {
+        let result = dialoguer::Editor::new().edit(&self.state.content)?;
+        result.map(|content| self.state.content = content);
+
+        terminal.clear()?;
+        Ok(())
     }
 
     fn on_enter(&mut self) {
