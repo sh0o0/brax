@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono.workspace = true
 fern = "0.7.0"
 humantime = "2.1.0"
 log = { workspace = true }
@@ -22,3 +23,5 @@ members = [
 [workspace.dependencies]
 log = "0.4.22"
 strum = "0.26.3"
+chrono = "0.4.38"
+regex = "1.11.1"

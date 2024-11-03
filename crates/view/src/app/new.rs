@@ -83,12 +83,7 @@ impl App {
     }
 
     fn on_enter(&mut self) {
-        match self.state.selecting_field {
-            Field::Title => self.state.select_next_field(),
-            Field::Type => self.state.select_next_field(),
-            Field::Impact => self.state.select_next_field(),
-            _ => {}
-        }
+        self.state.select_next_field();
     }
 
     fn on_tab(&mut self) {
@@ -102,6 +97,7 @@ impl App {
     fn on_left(&mut self) {
         match self.state.selecting_field {
             Field::Title => self.state.title.move_cursor_left(),
+            Field::StartDate => self.state.start_date.move_cursor_left(),
             _ => {}
         }
     }
@@ -109,6 +105,7 @@ impl App {
     fn on_right(&mut self) {
         match self.state.selecting_field {
             Field::Title => self.state.title.move_cursor_right(),
+            Field::StartDate => self.state.start_date.move_cursor_right(),
             _ => {}
         }
     }
@@ -132,15 +129,15 @@ impl App {
     fn on_char(&mut self, c: char) {
         match self.state.selecting_field {
             Field::Title => self.state.title.enter_char(c),
+            Field::StartDate => self.state.start_date.enter_char(c),
             _ => {}
         }
     }
 
     fn on_delete(&mut self) {
         match self.state.selecting_field {
-            Field::Title => {
-                self.state.title.delete_char();
-            }
+            Field::Title => self.state.title.delete_char(),
+            Field::StartDate => self.state.start_date.delete_char(),
             _ => {}
         }
     }

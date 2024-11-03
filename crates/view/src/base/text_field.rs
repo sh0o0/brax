@@ -7,7 +7,7 @@ use ratatui::{
     Frame,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TextFieldState {
     text: String,
     cursor_index: usize,
@@ -29,6 +29,11 @@ impl<'a> TextFieldState {
 
     pub fn text(&self) -> &str {
         &self.text
+    }
+
+    pub fn set_text(&mut self, text: String) {
+        self.text = text;
+        self.cursor_index = self.text.chars().count();
     }
 
     pub fn cursor_index(&self) -> usize {

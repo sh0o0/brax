@@ -8,7 +8,6 @@ use crate::{
     },
     utils::{self, text::Txt},
 };
-use crossterm::style::style;
 use domain::brag::{Impact, Type};
 
 use ratatui::{
@@ -18,6 +17,7 @@ use ratatui::{
     widgets::{Block, BorderType, ListItem, Paragraph, StatefulWidget},
     Frame,
 };
+use regex::Regex;
 use strum::{EnumCount, VariantArray};
 
 #[derive(Debug, PartialEq, Eq, Clone, strum::VariantArray)]
@@ -25,11 +25,11 @@ pub enum Field {
     Title,
     Type,
     Impact,
+    StartDate,
+    // EndDate,
     // Organization,
     // Skills,
     // Languages,
-    // StartDate,
-    // EndDate,
     // Type,
     // Url,
     // Position,
@@ -66,15 +66,20 @@ pub struct State {
     pub title: TextFieldState,
     pub typ: LoopListState,
     pub impact: LoopListState,
+    pub start_date: TextFieldState,
 }
 
 impl<'a> State {
     pub fn default() -> Self {
+        let start_date = &mut TextFieldState::default();
+        start_date.set_text(chrono::Local::now().naive_local().date().to_string());
+
         Self {
             selecting_field: Field::VARIANTS.first().unwrap().clone(),
             title: TextFieldState::default(),
             typ: LoopListState::default(Type::COUNT).with_selected(Some(0)),
             impact: LoopListState::default(Impact::COUNT).with_selected(Some(0)),
+            start_date: start_date.clone(),
         }
     }
 
@@ -111,7 +116,8 @@ impl<'a, 'b> Screen<'a, 'b> {
             self.state.selecting_field.clone().text()
         );
 
-        let [title_area, typ_area, impact_area] = Layout::vertical([
+        let [title_area, typ_area, impact_area, start_date_area] = Layout::vertical([
+            Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
@@ -121,6 +127,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         self.render_title(title_area);
         self.render_typ(typ_area);
         self.render_impact(impact_area);
+        self.render_start_date(start_date_area);
 
         self.render_typ_popup_if_selecting(typ_area);
         self.render_impact_popup_if_selecting(impact_area);
@@ -133,7 +140,6 @@ impl<'a, 'b> Screen<'a, 'b> {
                 Field::Title => Mode::Edit,
                 _ => Mode::Display,
             })
-            .helper("Title desuyo".into())
             .validator(|text| {
                 if text.is_empty() {
                     return Some("Required".to_string());
@@ -183,6 +189,30 @@ impl<'a, 'b> Screen<'a, 'b> {
             });
 
         self.frame.render_widget(impact, area);
+    }
+
+    fn render_start_date(&mut self, area: Rect) {
+        let start_date = TextField::new()
+            .block(Block::bordered().title(Field::StartDate.text()))
+            .mode(match self.state.selecting_field {
+                Field::StartDate => Mode::Edit,
+                _ => Mode::Display,
+            })
+            .helper("2024, 2024-01, 2024-01-01".into())
+            .validator(|text| {
+                if text.is_empty() {
+                    return Some("Required".to_string());
+                }
+
+                if !DATE_REGEX.is_match(&text) {
+                    return Some("Invalid date".to_string());
+                }
+
+                None
+            });
+
+        self.frame
+            .render_text_field(start_date, area, &mut self.state.start_date);
     }
 
     fn render_typ_popup_if_selecting(&mut self, typ_area: Rect) {
@@ -250,6 +280,7 @@ impl utils::text::Txt for Field {
             Field::Title => "Title".to_string(),
             Field::Type => "Type".to_string(),
             Field::Impact => "Impact".to_string(),
+            Field::StartDate => "Start Date".to_string(),
             // Field::Organization => "Organization".to_string(),
             // Field::Skills => "Skills".to_string(),
             // Field::Languages => "Languages".to_string(),
@@ -309,3 +340,7 @@ trait ParagraphExt<'a> {
 }
 
 impl<'a> ParagraphExt<'a> for Paragraph<'a> {}
+
+lazy_static::lazy_static! {
+    static ref DATE_REGEX: Regex = Regex::new(r"^\d{4}(-\d{2}(-\d{2})?)?$").unwrap();
+}
