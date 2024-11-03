@@ -3,7 +3,7 @@ use std::ops::Index;
 use crate::{
     base::{
         loop_list::{LoopList, LoopListState},
-        text_field::{Mode, TextField, TextFieldFrame, TextFieldState},
+        text_field::{TextField, TextFieldFrame, TextFieldState},
     },
     config::colors::COLORS,
     utils::{self, text::Txt},
@@ -14,13 +14,13 @@ use ratatui::{
     layout::{Constraint, Layout, Offset, Rect},
     style::{Style, Stylize},
     text::{self, Span},
-    widgets::{Block, BorderType, Clear, ListItem, Paragraph, StatefulWidget},
+    widgets::{block::title, Block, BorderType, Clear, ListItem, Paragraph, StatefulWidget},
     Frame,
 };
 use regex::Regex;
 use strum::{EnumCount, VariantArray};
 
-#[derive(Debug, PartialEq, Eq, Clone, strum::VariantArray)]
+#[derive(Debug, PartialEq, Eq, Clone, strum::VariantArray, strum::EnumIs)]
 pub enum SelectableField {
     Title,
     Type,
@@ -65,6 +65,7 @@ impl SelectableField {
 #[derive(Debug)]
 pub struct State {
     pub selecting_field: SelectableField,
+    pub is_edit_mode: bool,
     pub is_expand_advanced: bool,
 
     pub title: TextFieldState,
@@ -82,6 +83,7 @@ impl<'a> State {
 
         Self {
             selecting_field: SelectableField::VARIANTS.first().unwrap().clone(),
+            is_edit_mode: true,
             is_expand_advanced: false,
             title: TextFieldState::default(),
             typ: LoopListState::default(Type::COUNT).with_selected(Some(0)),
@@ -126,7 +128,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     pub fn render(&mut self) {
         log::info!(
             "Rendering screen, {}",
-            self.state.selecting_field.clone().text()
+            self.state.selecting_field.clone().title()
         );
 
         let [title_area, typ_area, impact_area, start_date_area, end_date_area, advanced_area, content_area, commands_area] =
@@ -159,12 +161,15 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_title(&mut self, area: Rect) {
+        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
+            (SelectableField::Title, false) => Status::Selecting,
+            (SelectableField::Title, true) => Status::Editing,
+            _ => Status::Displaying,
+        };
+
         let title = TextField::new()
-            .block(Block::bordered().title(SelectableField::Title.text()))
-            .mode(match self.state.selecting_field {
-                SelectableField::Title => Mode::Edit,
-                _ => Mode::Display,
-            })
+            .block(status.block().title(SelectableField::Title.title()))
+            .style(status.style())
             .validator(|text| {
                 if text.is_empty() {
                     return Some("Required".to_string());
@@ -185,13 +190,15 @@ impl<'a, 'b> Screen<'a, 'b> {
             Some(typ) => typ.text(),
             None => "Select a type".to_string(),
         };
+        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
+            (SelectableField::Type, false) => Status::Selecting,
+            (SelectableField::Type, true) => Status::Editing,
+            _ => Status::Displaying,
+        };
 
-        let typ = Paragraph::new(typ_text.gray())
-            .block(Block::bordered().title(SelectableField::Type.text()))
-            .style(match self.state.selecting_field {
-                SelectableField::Type => Style::default().fg(COLORS.primary),
-                _ => Style::default().gray(),
-            });
+        let typ = Paragraph::new(typ_text.app_default())
+            .block(status.block().title(SelectableField::Type.title()))
+            .style(status.style());
 
         self.frame.render_widget(typ, area);
     }
@@ -205,27 +212,31 @@ impl<'a, 'b> Screen<'a, 'b> {
         {
             Some(impact) => impact.text(),
             None => "Select an impact".to_string(),
-        }
-        .gray();
+        };
 
-        let impact = Paragraph::new(impact_text)
-            .block(Block::bordered().title(SelectableField::Impact.text()))
-            .style(match self.state.selecting_field {
-                SelectableField::Impact => Style::default().fg(COLORS.primary),
-                _ => Style::default().gray(),
-            });
+        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
+            (SelectableField::Impact, false) => Status::Selecting,
+            (SelectableField::Impact, true) => Status::Editing,
+            _ => Status::Displaying,
+        };
+
+        let impact = Paragraph::new(impact_text.app_default())
+            .block(status.block().title(SelectableField::Impact.title()))
+            .style(status.style());
 
         self.frame.render_widget(impact, area);
     }
 
     fn render_start_date(&mut self, area: Rect) {
+        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
+            (SelectableField::StartDate, false) => Status::Selecting,
+            (SelectableField::StartDate, true) => Status::Editing,
+            _ => Status::Displaying,
+        };
         let start_date = TextField::new()
-            .block(Block::bordered().title(SelectableField::StartDate.text()))
-            .mode(match self.state.selecting_field {
-                SelectableField::StartDate => Mode::Edit,
-                _ => Mode::Display,
-            })
-            .helper("2024, 2024-01, 2024-01-01".into())
+            .block(status.block().title(SelectableField::StartDate.title()))
+            .style(status.style())
+            .helper("2024, 2024-01 or 2024-01-01".into())
             .validator(|text| {
                 if text.is_empty() {
                     return Some("Required".to_string());
@@ -243,13 +254,15 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_end_date(&mut self, area: Rect) {
+        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
+            (SelectableField::EndDate, false) => Status::Selecting,
+            (SelectableField::EndDate, true) => Status::Editing,
+            _ => Status::Displaying,
+        };
         let end_date = TextField::new()
-            .block(Block::bordered().title(SelectableField::EndDate.text()))
-            .mode(match self.state.selecting_field {
-                SelectableField::EndDate => Mode::Edit,
-                _ => Mode::Display,
-            })
-            .helper("2024, 2024-01, 2024-01-01".into())
+            .block(status.block().title(SelectableField::EndDate.title()))
+            .style(status.style())
+            .helper("2024, 2024-01 or 2024-01-01".into())
             .validator(|text| {
                 if text.is_empty() {
                     return None;
@@ -291,18 +304,21 @@ impl<'a, 'b> Screen<'a, 'b> {
     fn render_advanced_fields(&mut self, area: Rect) {
         let [organization_area] = Layout::vertical([Constraint::Max(3)]).areas(area);
 
+        self.render_organization(organization_area);
+    }
+
+    fn render_organization(&mut self, area: Rect) {
+        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
+            // (SelectableField::Organization, false) => Status::Selecting,
+            // (SelectableField::Organization, true) => Status::Editing,
+            _ => Status::Displaying,
+        };
         let organization = TextField::new()
             .block(Block::bordered().title("Organization"))
-            .mode(match self.state.selecting_field {
-                SelectableField::Advanced => Mode::Edit,
-                _ => Mode::Display,
-            });
+            .style(status.style());
 
-        self.frame.render_text_field(
-            organization,
-            organization_area,
-            &mut TextFieldState::default(),
-        );
+        self.frame
+            .render_text_field(organization, area, &mut TextFieldState::default());
     }
 
     fn render_content(&mut self, area: Rect) {
@@ -317,7 +333,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_typ_popup_if_selecting(&mut self, typ_area: Rect) {
-        if self.state.selecting_field != SelectableField::Type {
+        if !self.state.selecting_field.is_type() || !self.state.is_edit_mode {
             return;
         }
 
@@ -334,7 +350,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_impact_popup_if_selecting(&mut self, impact_area: Rect) {
-        if self.state.selecting_field != SelectableField::Impact {
+        if !self.state.selecting_field.is_impact() || !self.state.is_edit_mode {
             return;
         }
 
@@ -378,8 +394,8 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 }
 
-impl utils::text::Txt for SelectableField {
-    fn text(&self) -> String {
+impl SelectableField {
+    fn title(&self) -> String {
         match self {
             SelectableField::Title => "Title".to_string(),
             SelectableField::Type => "Type".to_string(),
@@ -390,6 +406,48 @@ impl utils::text::Txt for SelectableField {
         }
     }
 }
+
+enum Status {
+    Displaying,
+    Selecting,
+    Editing,
+}
+
+impl Status {
+    fn block(&self) -> Block<'static> {
+        match self {
+            Status::Displaying => Block::bordered(),
+            Status::Selecting => Block::bordered().border_type(BorderType::Double),
+            Status::Editing => Block::bordered().fg(COLORS.primary),
+        }
+    }
+
+    fn style(&self) -> Style {
+        match self {
+            Status::Displaying => Style::default(),
+            Status::Selecting => Style::default(),
+            Status::Editing => Style::default().fg(COLORS.primary),
+        }
+    }
+}
+
+trait StringExt {
+    fn app_default(self) -> Span<'static>;
+}
+
+impl StringExt for String {
+    fn app_default(self) -> Span<'static> {
+        self.gray()
+    }
+}
+
+trait BlockExt<'a> {
+    fn popup() -> Block<'a> {
+        Block::bordered().border_type(BorderType::Double)
+    }
+}
+
+impl<'a> BlockExt<'a> for Block<'a> {}
 
 impl utils::text::Txt for Type {
     fn text(&self) -> String {
@@ -415,14 +473,6 @@ impl utils::text::Txt for Impact {
         }
     }
 }
-
-trait BlockExt<'a> {
-    fn popup() -> Block<'a> {
-        Block::bordered().border_type(BorderType::Double)
-    }
-}
-
-impl<'a> BlockExt<'a> for Block<'a> {}
 
 lazy_static::lazy_static! {
     static ref DATE_REGEX: Regex = Regex::new(r"^\d{4}(-\d{2}(-\d{2})?)?$").unwrap();

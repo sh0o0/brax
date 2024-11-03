@@ -1,4 +1,3 @@
-use crate::config::colors::COLORS;
 use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
@@ -12,6 +11,7 @@ use ratatui::{
 pub struct TextFieldState {
     text: String,
     cursor_index: usize,
+    is_editing: bool,
     has_modified: bool,
 }
 
@@ -24,6 +24,7 @@ impl<'a> TextFieldState {
         Self {
             text,
             cursor_index,
+            is_editing: false,
             has_modified: false,
         }
     }
@@ -35,6 +36,10 @@ impl<'a> TextFieldState {
     pub fn set_text(&mut self, text: String) {
         self.text = text;
         self.cursor_index = self.text.chars().count();
+    }
+
+    pub fn set_is_editing(&mut self, is_editing: bool) {
+        self.is_editing = is_editing;
     }
 
     pub fn cursor_index(&self) -> usize {
@@ -110,17 +115,11 @@ impl<'a> TextFieldState {
 
 pub type Validator = fn(String) -> Option<String>;
 
-#[derive(Debug, strum::EnumIs)]
-pub enum Mode {
-    Display,
-    Edit,
-}
-
 pub struct TextField<'a> {
     block: Option<Block<'a>>,
     validator: Option<Validator>,
     helper: Option<Text<'a>>,
-    mode: Mode,
+    style: Option<Style>,
 }
 
 impl<'a> TextField<'a> {
@@ -129,7 +128,7 @@ impl<'a> TextField<'a> {
             block: None,
             validator: None,
             helper: None,
-            mode: Mode::Display,
+            style: None,
         }
     }
 
@@ -148,8 +147,8 @@ impl<'a> TextField<'a> {
         self
     }
 
-    pub fn mode(mut self, mode: Mode) -> Self {
-        self.mode = mode;
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = Some(style);
         self
     }
 }
@@ -169,14 +168,14 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
         let mut paragraph = Paragraph::new(match state.text() {
             "" => self.helper.clone().unwrap_or_default().dark_gray(),
             text => text.gray().into(),
-        })
-        .style(match self.mode {
-            Mode::Display => Style::default(),
-            Mode::Edit => Style::default().fg(COLORS.primary),
         });
 
-        let mut block = match self.block.clone() {
-            Some(block) => block,
+        if let Some(style) = &self.style {
+            paragraph = paragraph.style(style.clone());
+        }
+
+        let mut block = match &self.block {
+            Some(block) => block.clone(),
             None => Block::default(),
         };
 
@@ -186,7 +185,7 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
                 let validated_text = validator(text);
                 match validated_text {
                     Some(validated_text) => {
-                        block = block.title_bottom(validated_text.not_bold());
+                        block = block.title_bottom(validated_text.not_bold()).red();
                         paragraph = paragraph.red();
                     }
                     None => {}
@@ -204,7 +203,7 @@ pub trait TextFieldFrame {
 
 impl<'a> TextFieldFrame for Frame<'a> {
     fn render_text_field(&mut self, text_field: TextField, area: Rect, state: &mut TextFieldState) {
-        if text_field.mode.is_edit() {
+        if state.is_editing {
             let cursor_pos = state.cursor_index() as u16;
             let position = Position {
                 x: area.x + cursor_pos + 1,

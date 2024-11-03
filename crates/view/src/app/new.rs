@@ -1,12 +1,7 @@
-use crate::{
-    base::frame,
-    screen::new::{Screen, SelectableField, State},
-    utils,
-};
+use crate::screen::new::{Screen, SelectableField, State};
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use domain::error::{Error, Result};
-use ratatui::{backend, prelude::Backend, Terminal};
+use ratatui::{prelude::Backend, Terminal};
 use std::time::{Duration, Instant};
 
 pub struct App {
@@ -30,6 +25,8 @@ impl App {
         let last_tick = Instant::now();
 
         while !self.should_quit {
+            self.before_render();
+
             terminal.draw(|frame| {
                 Screen::new(frame, &mut self.state).render();
             })?;
@@ -67,6 +64,7 @@ impl App {
 
             if key.kind == KeyEventKind::Press {
                 match key.code {
+                    KeyCode::Esc => self.on_escape(),
                     KeyCode::Tab => self.on_tab(),
                     KeyCode::BackTab => self.on_back_tab(),
                     KeyCode::Up => self.on_up(),
@@ -99,7 +97,28 @@ impl App {
         Ok(())
     }
 
+    fn before_render(&mut self) {
+        self.state
+            .title
+            .set_is_editing(self.state.selecting_field == SelectableField::Title);
+        self.state
+            .start_date
+            .set_is_editing(self.state.selecting_field == SelectableField::StartDate);
+        self.state
+            .end_date
+            .set_is_editing(self.state.selecting_field == SelectableField::EndDate);
+    }
+
+    fn on_escape(&mut self) {
+        self.state.is_edit_mode = false;
+    }
+
     fn on_enter(&mut self) {
+        if !self.state.is_edit_mode {
+            self.state.is_edit_mode = true;
+            return;
+        }
+
         match self.state.selecting_field {
             SelectableField::Advanced => self.state.toggle_expand_advanced(),
             _ => self.state.select_next_field(),
@@ -115,6 +134,10 @@ impl App {
     }
 
     fn on_left(&mut self) {
+        if !self.state.is_edit_mode {
+            return;
+        }
+
         match self.state.selecting_field {
             SelectableField::Title => self.state.title.move_cursor_left(),
             SelectableField::StartDate => self.state.start_date.move_cursor_left(),
@@ -124,6 +147,10 @@ impl App {
     }
 
     fn on_right(&mut self) {
+        if !self.state.is_edit_mode {
+            return;
+        }
+
         match self.state.selecting_field {
             SelectableField::Title => self.state.title.move_cursor_right(),
             SelectableField::StartDate => self.state.start_date.move_cursor_right(),
@@ -133,6 +160,11 @@ impl App {
     }
 
     fn on_up(&mut self) {
+        if !self.state.is_edit_mode {
+            self.state.select_previous_field();
+            return;
+        }
+
         match self.state.selecting_field {
             SelectableField::Type => self.state.typ.select_previous(),
             SelectableField::Impact => self.state.impact.select_previous(),
@@ -141,6 +173,11 @@ impl App {
     }
 
     fn on_down(&mut self) {
+        if !self.state.is_edit_mode {
+            self.state.select_next_field();
+            return;
+        }
+
         match self.state.selecting_field {
             SelectableField::Type => self.state.typ.select_next(),
             SelectableField::Impact => self.state.impact.select_next(),
@@ -149,6 +186,10 @@ impl App {
     }
 
     fn on_char(&mut self, c: char) {
+        if !self.state.is_edit_mode {
+            return;
+        }
+
         match self.state.selecting_field {
             SelectableField::Title => self.state.title.enter_char(c),
             SelectableField::StartDate => self.state.start_date.enter_char(c),
@@ -158,6 +199,10 @@ impl App {
     }
 
     fn on_delete(&mut self) {
+        if !self.state.is_edit_mode {
+            return;
+        }
+
         match self.state.selecting_field {
             SelectableField::Title => self.state.title.delete_char(),
             SelectableField::StartDate => self.state.start_date.delete_char(),
@@ -167,6 +212,11 @@ impl App {
     }
 
     fn on_k(&mut self) {
+        if !self.state.is_edit_mode {
+            self.on_up();
+            return;
+        }
+
         const K: char = 'k';
 
         match self.state.selecting_field {
@@ -176,6 +226,11 @@ impl App {
     }
 
     fn on_j(&mut self) {
+        if !self.state.is_edit_mode {
+            self.on_down();
+            return;
+        }
+
         const J: char = 'j';
 
         match self.state.selecting_field {
