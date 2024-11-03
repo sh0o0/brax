@@ -111,6 +111,7 @@ pub enum Mode {
 pub struct TextField<'a> {
     block: Option<Block<'a>>,
     validator: Option<Validator>,
+    helper: Option<Text<'a>>,
     mode: Mode,
 }
 
@@ -119,6 +120,7 @@ impl<'a> TextField<'a> {
         Self {
             block: None,
             validator: None,
+            helper: None,
             mode: Mode::Display,
         }
     }
@@ -130,6 +132,11 @@ impl<'a> TextField<'a> {
 
     pub fn validator(mut self, validator: Validator) -> Self {
         self.validator = Some(validator);
+        self
+    }
+
+    pub fn helper(mut self, helper: Text<'a>) -> Self {
+        self.helper = Some(helper);
         self
     }
 
@@ -151,7 +158,11 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
     type State = TextFieldState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut TextFieldState) {
-        let mut paragraph = Paragraph::new(state.text()).style(match self.mode {
+        let mut paragraph = Paragraph::new(match state.text() {
+            "" => self.helper.clone().unwrap_or_default().dark_gray(),
+            text => text.into(),
+        })
+        .style(match self.mode {
             Mode::Display => Style::default().dark_gray(),
             Mode::Active => Style::default(),
             Mode::Deactive => Style::default().dark_gray(),

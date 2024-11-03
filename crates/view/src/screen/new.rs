@@ -133,6 +133,7 @@ impl<'a, 'b> Screen<'a, 'b> {
                 Field::Title => Mode::Edit,
                 _ => Mode::Display,
             })
+            .helper("Title desuyo".into())
             .validator(|text| {
                 if text.is_empty() {
                     return Some("Required".to_string());
@@ -158,18 +159,27 @@ impl<'a, 'b> Screen<'a, 'b> {
             .block(Block::bordered().title(Field::Type.text()))
             .style(match self.state.selecting_field {
                 Field::Type => Style::default().bold(),
-                _ => Style::default().dark_gray(),
+                _ => Style::default().gray(),
             });
 
         self.frame.render_widget(typ, area);
     }
 
     fn render_impact(&mut self, area: Rect) {
-        let impact = Paragraph::app_default("yyy")
+        let impact_text = match self
+            .state
+            .impact
+            .selected
+            .map(|i| Impact::VARIANTS.index(i))
+        {
+            Some(impact) => impact.text(),
+            None => "Select an impact".to_string(),
+        };
+        let impact = Paragraph::app_default(impact_text)
             .block(Block::bordered().title(Field::Impact.text()))
             .style(match self.state.selecting_field {
                 Field::Impact => Style::default().bold(),
-                _ => Style::default().dark_gray(),
+                _ => Style::default().gray(),
             });
 
         self.frame.render_widget(impact, area);
