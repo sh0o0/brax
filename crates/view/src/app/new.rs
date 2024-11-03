@@ -98,6 +98,7 @@ impl App {
         match self.state.selecting_field {
             Field::Title => self.state.title.move_cursor_left(),
             Field::StartDate => self.state.start_date.move_cursor_left(),
+            Field::EndDate => self.state.end_date.move_cursor_left(),
             _ => {}
         }
     }
@@ -106,6 +107,7 @@ impl App {
         match self.state.selecting_field {
             Field::Title => self.state.title.move_cursor_right(),
             Field::StartDate => self.state.start_date.move_cursor_right(),
+            Field::EndDate => self.state.end_date.move_cursor_right(),
             _ => {}
         }
     }
@@ -130,6 +132,7 @@ impl App {
         match self.state.selecting_field {
             Field::Title => self.state.title.enter_char(c),
             Field::StartDate => self.state.start_date.enter_char(c),
+            Field::EndDate => self.state.end_date.enter_char(c),
             _ => {}
         }
     }
@@ -138,6 +141,7 @@ impl App {
         match self.state.selecting_field {
             Field::Title => self.state.title.delete_char(),
             Field::StartDate => self.state.start_date.delete_char(),
+            Field::EndDate => self.state.end_date.delete_char(),
             _ => {}
         }
     }
@@ -146,8 +150,8 @@ impl App {
         const K: char = 'k';
 
         match self.state.selecting_field {
-            Field::Title => self.on_char(K),
-            _ => self.on_up(),
+            Field::Type | Field::Impact => self.on_up(),
+            _ => self.on_char(K),
         }
     }
 
@@ -155,8 +159,8 @@ impl App {
         const J: char = 'j';
 
         match self.state.selecting_field {
-            Field::Title => self.on_char(J),
-            _ => self.on_down(),
+            Field::Type | Field::Impact => self.on_down(),
+            _ => self.on_char(J),
         }
     }
 }

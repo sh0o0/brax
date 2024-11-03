@@ -26,7 +26,7 @@ pub enum Field {
     Type,
     Impact,
     StartDate,
-    // EndDate,
+    EndDate,
     // Organization,
     // Skills,
     // Languages,
@@ -67,6 +67,8 @@ pub struct State {
     pub typ: LoopListState,
     pub impact: LoopListState,
     pub start_date: TextFieldState,
+    pub end_date: TextFieldState,
+    pub content: String,
 }
 
 impl<'a> State {
@@ -80,6 +82,8 @@ impl<'a> State {
             typ: LoopListState::default(Type::COUNT).with_selected(Some(0)),
             impact: LoopListState::default(Impact::COUNT).with_selected(Some(0)),
             start_date: start_date.clone(),
+            end_date: TextFieldState::default(),
+            content: "".to_string(),
         }
     }
 
@@ -116,18 +120,22 @@ impl<'a, 'b> Screen<'a, 'b> {
             self.state.selecting_field.clone().text()
         );
 
-        let [title_area, typ_area, impact_area, start_date_area] = Layout::vertical([
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(3),
-        ])
-        .areas(self.frame.area());
+        let [title_area, typ_area, impact_area, start_date_area, end_date_area, content_area] =
+            Layout::vertical([
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Fill(1),
+            ])
+            .areas(self.frame.area());
 
         self.render_title(title_area);
         self.render_typ(typ_area);
         self.render_impact(impact_area);
         self.render_start_date(start_date_area);
+        self.render_end_date(end_date_area);
 
         self.render_typ_popup_if_selecting(typ_area);
         self.render_impact_popup_if_selecting(impact_area);
@@ -215,6 +223,29 @@ impl<'a, 'b> Screen<'a, 'b> {
             .render_text_field(start_date, area, &mut self.state.start_date);
     }
 
+    fn render_end_date(&mut self, area: Rect) {
+        let end_date = TextField::new()
+            .block(Block::bordered().title(Field::EndDate.text()))
+            .mode(match self.state.selecting_field {
+                Field::EndDate => Mode::Edit,
+                _ => Mode::Display,
+            })
+            .helper("2024, 2024-01, 2024-01-01".into())
+            .validator(|text| {
+                if text.is_empty() {
+                    return None;
+                }
+                if !DATE_REGEX.is_match(&text) {
+                    return Some("Invalid date".to_string());
+                }
+
+                None
+            });
+
+        self.frame
+            .render_text_field(end_date, area, &mut self.state.end_date);
+    }
+
     fn render_typ_popup_if_selecting(&mut self, typ_area: Rect) {
         if self.state.selecting_field != Field::Type {
             return;
@@ -281,6 +312,7 @@ impl utils::text::Txt for Field {
             Field::Type => "Type".to_string(),
             Field::Impact => "Impact".to_string(),
             Field::StartDate => "Start Date".to_string(),
+            Field::EndDate => "End Date".to_string(),
             // Field::Organization => "Organization".to_string(),
             // Field::Skills => "Skills".to_string(),
             // Field::Languages => "Languages".to_string(),
