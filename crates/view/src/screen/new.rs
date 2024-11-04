@@ -349,12 +349,12 @@ impl<'a, 'b> Screen<'a, 'b> {
 
     fn render_organization(&mut self, area: Rect) {
         let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
-            // (SelectableField::Organization, false) => Status::Selecting,
-            // (SelectableField::Organization, true) => Status::Editing,
+            (SelectableField::Organization, false) => Status::Selecting,
+            (SelectableField::Organization, true) => Status::Editing,
             _ => Status::Displaying,
         };
         let organization = TextField::new()
-            .block(Block::bordered().title("Organization"))
+            .block(status.block().title(SelectableField::Organization.title()))
             .style(status.style());
 
         self.frame
@@ -437,13 +437,13 @@ impl<'a, 'b> Screen<'a, 'b> {
 impl SelectableField {
     fn title(&self) -> String {
         match self {
-            SelectableField::Title => "Title".to_string(),
-            SelectableField::Type => "Type".to_string(),
-            SelectableField::Impact => "Impact".to_string(),
-            SelectableField::StartDate => "Start Date".to_string(),
-            SelectableField::EndDate => "End Date".to_string(),
+            SelectableField::Title => "✏️ Title".to_string(),
+            SelectableField::Type => "📋 Type".to_string(),
+            SelectableField::Impact => "🌟 Impact".to_string(),
+            SelectableField::StartDate => "💨 Start Date".to_string(),
+            SelectableField::EndDate => "🏁 End Date".to_string(),
             SelectableField::Advanced => "Advanced".to_string(),
-            SelectableField::Organization => "Organization".to_string(),
+            SelectableField::Organization => "🏢 Organization".to_string(),
         }
     }
 }
