@@ -114,15 +114,17 @@ impl App {
     }
 
     fn on_enter(&mut self) {
+        if self.state.selecting_field.is_advanced() {
+            self.state.toggle_expand_advanced();
+            return;
+        }
+
         if !self.state.is_edit_mode {
             self.state.is_edit_mode = true;
             return;
         }
 
-        match self.state.selecting_field {
-            SelectableField::Advanced => self.state.toggle_expand_advanced(),
-            _ => self.state.select_next_field(),
-        }
+        self.state.select_next_field();
     }
 
     fn on_tab(&mut self) {

@@ -6,7 +6,11 @@ use crate::{
         text_field::{TextField, TextFieldFrame, TextFieldState},
     },
     config::colors::COLORS,
-    utils::{self, text::Txt},
+    utils::{
+        self,
+        constant::{TEXT_DOWN_ARROW, TEXT_RIGHT_ARROW},
+        text::Txt,
+    },
 };
 use domain::brag::{Impact, Type};
 
@@ -28,12 +32,14 @@ pub enum SelectableField {
     StartDate,
     EndDate,
     Advanced,
-    // Organization,
+    Organization,
     // Skills,
     // Languages,
     // Url,
     // Position,
 }
+
+const ADVANCED_FIELDS: &[SelectableField] = &[SelectableField::Organization];
 
 impl SelectableField {
     fn idx(self) -> usize {
@@ -100,6 +106,10 @@ impl<'a> State {
             .clone()
             .next()
             .unwrap_or(SelectableField::VARIANTS.first().unwrap().clone());
+
+        if self.should_skip_advanced_fields() {
+            self.selecting_field = SelectableField::VARIANTS.first().unwrap().clone();
+        }
     }
 
     pub fn select_previous_field(&mut self) {
@@ -108,10 +118,30 @@ impl<'a> State {
             .clone()
             .prev()
             .unwrap_or(SelectableField::VARIANTS.last().unwrap().clone());
+
+        if self.should_skip_advanced_fields() {
+            self.select_advanced_field();
+        }
     }
 
     pub fn toggle_expand_advanced(&mut self) {
         self.is_expand_advanced = !self.is_expand_advanced;
+
+        if self.should_skip_advanced_fields() {
+            self.select_advanced_field();
+        }
+    }
+
+    fn select_advanced_field(&mut self) {
+        self.selecting_field = SelectableField::Advanced;
+    }
+
+    fn should_skip_advanced_fields(&self) -> bool {
+        if self.is_expand_advanced {
+            return false;
+        }
+
+        ADVANCED_FIELDS.contains(&self.selecting_field)
     }
 }
 
@@ -285,7 +315,12 @@ impl<'a, 'b> Screen<'a, 'b> {
         };
 
         if !self.state.is_expand_advanced {
-            let advanced = Paragraph::new("\u{25b6} Advanced").style(style);
+            let advanced = Paragraph::new(format!(
+                "{} {}",
+                TEXT_RIGHT_ARROW,
+                SelectableField::Advanced.title()
+            ))
+            .style(style);
             self.frame.render_widget(advanced, area);
             return;
         }
@@ -295,7 +330,12 @@ impl<'a, 'b> Screen<'a, 'b> {
         let [_, fields_area] =
             Layout::horizontal([Constraint::Length(1), Constraint::default()]).areas(fields_area);
 
-        let advanced = Paragraph::new("\u{25bc} Advanced").style(style);
+        let advanced = Paragraph::new(format!(
+            "{} {}",
+            TEXT_DOWN_ARROW,
+            SelectableField::Advanced.title()
+        ))
+        .style(style);
 
         self.frame.render_widget(advanced, advanced_area);
         self.render_advanced_fields(fields_area);
@@ -402,7 +442,8 @@ impl SelectableField {
             SelectableField::Impact => "Impact".to_string(),
             SelectableField::StartDate => "Start Date".to_string(),
             SelectableField::EndDate => "End Date".to_string(),
-            SelectableField::Advanced => "".to_string(),
+            SelectableField::Advanced => "Advanced".to_string(),
+            SelectableField::Organization => "Organization".to_string(),
         }
     }
 }
