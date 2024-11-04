@@ -2,13 +2,13 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::Style,
-    widgets::{Block, ListItem, StatefulWidget, StatefulWidgetRef},
+    widgets::{Block, List, ListItem, StatefulWidget, StatefulWidgetRef},
 };
 
 use crate::utils::tui::StatefulDrawer;
 
 use super::{
-    loop_list::{LoopList, LoopListState},
+    loop_list::LoopListState,
     text_field::{TextField, TextFieldState},
 };
 
@@ -16,10 +16,9 @@ use super::{
 pub struct AutocompleteTextFieldState<'a, T> {
     items: &'a Vec<T>,
     text_field: TextFieldState,
-    offset: usize,
-    selected: Option<usize>,
     filter: fn(&T, &str) -> bool,
     filtered_items: Vec<&'a T>,
+    loop_list_state: LoopListState,
 }
 
 impl<'a, T> AutocompleteTextFieldState<'a, T> {
@@ -28,9 +27,8 @@ impl<'a, T> AutocompleteTextFieldState<'a, T> {
             items: items,
             filter: filter,
             text_field: TextFieldState::default(),
-            offset: 0,
-            selected: None,
             filtered_items: Vec::new(),
+            loop_list_state: LoopListState::new(0),
         };
         i.filter();
         i
@@ -41,53 +39,16 @@ impl<'a, T> AutocompleteTextFieldState<'a, T> {
         self.filter();
     }
 
-    pub fn select_first(&mut self) {
-        if self.filtered_items.is_empty() {
-            self.selected = None;
-            return;
-        }
-
-        self.selected = Some(0);
-    }
-
     pub fn select_next(&mut self) {
-        if self.filtered_items.is_empty() {
-            self.selected = None;
-            return;
-        }
-
-        match self.selected {
-            None => self.selected = Some(0),
-            Some(selected) => {
-                if selected < self.filtered_items.len() - 1 {
-                    self.selected = Some(selected + 1);
-                } else {
-                    self.selected = Some(0);
-                }
-            }
-        }
+        self.loop_list_state.select_next();
     }
 
     pub fn select_previous(&mut self) {
-        if self.filtered_items.is_empty() {
-            self.selected = None;
-            return;
-        }
-
-        match self.selected {
-            None => self.selected = Some(self.filtered_items.len() - 1),
-            Some(selected) => {
-                if selected > 0 {
-                    self.selected = Some(selected - 1);
-                } else {
-                    self.selected = Some(self.filtered_items.len() - 1);
-                }
-            }
-        }
+        self.loop_list_state.select_previous();
     }
 
     pub fn confirm(&mut self, extract_text: fn(&T) -> String) {
-        if let Some(selected) = self.selected {
+        if let Some(selected) = self.loop_list_state.list_state().selected() {
             let item = self.filtered_items[selected];
             let text = extract_text(item);
             self.text_field.set_text(text);
@@ -121,7 +82,7 @@ impl<'a, T> AutocompleteTextFieldState<'a, T> {
 
         if text.is_empty() {
             self.filtered_items = self.items.iter().collect();
-            self.select_first();
+            self.update_loop_list_state();
             return;
         }
 
@@ -131,15 +92,12 @@ impl<'a, T> AutocompleteTextFieldState<'a, T> {
             .filter(|item| (self.filter)(item, text))
             .collect();
 
-        self.select_first();
+        self.update_loop_list_state()
     }
-}
 
-impl<'a, T> Into<LoopListState> for &mut AutocompleteTextFieldState<'a, T> {
-    fn into(self) -> LoopListState {
-        LoopListState::new(self.filtered_items.len())
-            .with_selected(self.selected)
-            .with_offset(self.offset)
+    fn update_loop_list_state(&mut self) {
+        self.loop_list_state = LoopListState::new(self.filtered_items.len());
+        self.loop_list_state.select_first();
     }
 }
 
@@ -198,7 +156,7 @@ impl<'a, T> StatefulDrawer for AutocompleteTextField<'a, T> {
 
 pub struct AutocompleteTextFieldList<'a, T> {
     item_renderer: fn(&T) -> ListItem,
-    loop_list: LoopList<'a>,
+    loop_list: List<'a>,
 
     _marker: std::marker::PhantomData<&'a T>,
 }
@@ -207,7 +165,7 @@ impl<'a, T> AutocompleteTextFieldList<'a, T> {
     pub fn new(item_renderer: fn(&T) -> ListItem) -> Self {
         Self {
             item_renderer: item_renderer,
-            loop_list: LoopList::default(),
+            loop_list: List::default(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -246,9 +204,10 @@ impl<'a, T> StatefulWidgetRef for AutocompleteTextFieldList<'a, T> {
             .map(|item| (self.item_renderer)(item))
             .collect::<Vec<_>>();
 
-        self.loop_list
-            .clone()
-            .items(items)
-            .render_ref(area, buf, &mut state.into());
+        self.loop_list.clone().items(items).render_ref(
+            area,
+            buf,
+            &mut state.loop_list_state.list_state().clone(),
+        );
     }
 }

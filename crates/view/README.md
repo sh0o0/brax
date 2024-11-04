@@ -21,3 +21,4 @@ Screen --> Base
 - [ ] Model
 - [ ] Separate widgets to files
 - [ ] Refactor autocomplete
+- [ ] Cursor for unicode

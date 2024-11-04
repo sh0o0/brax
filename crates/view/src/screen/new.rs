@@ -5,7 +5,7 @@ use crate::{
         autocomplete_text_field::{
             AutocompleteTextField, AutocompleteTextFieldList, AutocompleteTextFieldState,
         },
-        loop_list::{LoopList, LoopListState},
+        loop_list::LoopListState,
         text_field::{TextField, TextFieldState},
     },
     config::colors::COLORS,
@@ -23,7 +23,7 @@ use ratatui::{
     layout::{Constraint, Layout, Offset, Rect},
     style::{Style, Stylize},
     text::{self, Span},
-    widgets::{Block, BorderType, Clear, ListItem, Paragraph, StatefulWidget},
+    widgets::{Block, BorderType, Clear, List, ListItem, Paragraph, StatefulWidget},
     Frame,
 };
 use regex::Regex;
@@ -237,7 +237,13 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_typ(&mut self, area: Rect) {
-        let typ_text = match self.state.typ.selected.map(|i| Type::VARIANTS.index(i)) {
+        let typ_text = match self
+            .state
+            .typ
+            .list_state()
+            .selected()
+            .map(|i| Type::VARIANTS.index(i))
+        {
             Some(typ) => typ.text(),
             None => "Select a type".to_string(),
         };
@@ -254,7 +260,8 @@ impl<'a, 'b> Screen<'a, 'b> {
         let impact_text = match self
             .state
             .impact
-            .selected
+            .list_state()
+            .selected()
             .map(|i| Impact::VARIANTS.index(i))
         {
             Some(impact) => impact.text(),
@@ -380,9 +387,14 @@ impl<'a, 'b> Screen<'a, 'b> {
             .iter()
             .map(|t| ListItem::new(vec![text::Line::from(Span::raw(t.text()))]))
             .collect::<Vec<_>>();
-        let list = LoopList::new(items).app_highlight().block(Block::popup());
+        let list = List::new(items).app_highlight().block(Block::popup());
 
-        self.render_stateful_popup_below_anchor(list, &mut self.state.typ.clone(), typ_area, 8);
+        self.render_stateful_popup_below_anchor(
+            list,
+            &mut self.state.typ.list_state().clone(),
+            typ_area,
+            8,
+        );
     }
 
     fn render_impact_popup_if_selecting(&mut self, impact_area: Rect) {
@@ -395,11 +407,11 @@ impl<'a, 'b> Screen<'a, 'b> {
             .map(|i| ListItem::new(vec![text::Line::from(Span::raw(i.text()))]))
             .collect::<Vec<_>>();
 
-        let list = LoopList::new(items).app_highlight().block(Block::popup());
+        let list = List::new(items).app_highlight().block(Block::popup());
 
         self.render_stateful_popup_below_anchor(
             list,
-            &mut self.state.impact.clone(),
+            &mut self.state.impact.list_state().clone(),
             impact_area,
             7,
         );
@@ -510,7 +522,11 @@ trait BlockExt<'a> {
 
 impl<'a> BlockExt<'a> for Block<'a> {}
 
-impl<'a> LoopList<'a> {
+trait ListExt {
+    fn app_highlight(self) -> Self;
+}
+
+impl<'a> ListExt for List<'a> {
     fn app_highlight(self) -> Self {
         self.highlight_style(Style::default().bold())
             .highlight_symbol("> ")

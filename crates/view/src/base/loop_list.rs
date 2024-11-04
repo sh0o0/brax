@@ -1,56 +1,64 @@
-use ratatui::{
-    buffer::Buffer,
-    layout::Rect,
-    style::Style,
-    widgets::{Block, List, ListItem, ListState, StatefulWidget, StatefulWidgetRef},
-};
+use ratatui::widgets::ListState;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct LoopListState {
-    pub offset: usize,
-    pub selected: Option<usize>,
-    pub len: usize,
-}
-
-impl Into<ListState> for &mut LoopListState {
-    fn into(self) -> ListState {
-        ListState::default()
-            .with_offset(self.offset)
-            .with_selected(self.selected)
-    }
+    list_state: ListState,
+    len: usize,
 }
 
 impl LoopListState {
     pub fn new(len: usize) -> Self {
         Self {
-            offset: 0,
-            selected: None,
+            list_state: ListState::default(),
             len,
         }
     }
 
+    pub fn list_state(&self) -> &ListState {
+        &self.list_state
+    }
+
     pub fn with_offset(mut self, offset: usize) -> Self {
-        self.offset = offset;
+        self.list_state = self.list_state.with_offset(offset);
         self
     }
 
     pub fn with_selected(mut self, selected: Option<usize>) -> Self {
-        self.selected = selected;
+        self.list_state = self.list_state.with_selected(selected);
         self
+    }
+
+    pub fn select_first(&mut self) {
+        if self.len == 0 {
+            self.list_state.select(None);
+            return;
+        }
+
+        self.list_state.select_first();
+    }
+
+    pub fn select_last(&mut self) {
+        if self.len == 0 {
+            self.list_state.select(None);
+            return;
+        }
+
+        self.list_state.select_last();
     }
 
     pub fn select_next(&mut self) {
         if self.len == 0 {
+            self.list_state.select(None);
             return;
         }
 
-        match self.selected {
-            None => self.selected = Some(0),
-            Some(selected) => {
-                if selected < self.len - 1 {
-                    self.selected = Some(selected + 1);
+        match self.list_state.selected() {
+            None => self.list_state.select_first(),
+            Some(_) => {
+                if self.is_selecting_last() {
+                    self.list_state.select_first();
                 } else {
-                    self.selected = Some(0);
+                    self.list_state.select_next();
                 }
             }
         }
@@ -58,75 +66,33 @@ impl LoopListState {
 
     pub fn select_previous(&mut self) {
         if self.len == 0 {
+            self.list_state.select(None);
             return;
         }
 
-        match self.selected {
-            None => self.selected = Some(self.len - 1),
-            Some(selected) => {
-                if selected > 0 {
-                    self.selected = Some(selected - 1);
+        match self.list_state.selected() {
+            None => self.list_state.select_last(),
+            Some(_) => {
+                if self.is_selecting_first() {
+                    self.list_state.select_last();
                 } else {
-                    self.selected = Some(self.len - 1);
+                    self.list_state.select_previous();
                 }
             }
         }
     }
-}
 
-#[derive(Debug, Default, Clone)]
-pub struct LoopList<'a> {
-    list: List<'a>,
-}
-
-impl<'a> LoopList<'a> {
-    pub fn new<T>(items: T) -> Self
-    where
-        T: IntoIterator,
-        T::Item: Into<ListItem<'a>>,
-    {
-        Self {
-            list: List::new(items),
+    fn is_selecting_last(&self) -> bool {
+        match self.list_state.selected() {
+            None => false,
+            Some(selected) => selected == self.len - 1,
         }
     }
 
-    pub fn items<T>(mut self, items: T) -> Self
-    where
-        T: IntoIterator,
-        T::Item: Into<ListItem<'a>>,
-    {
-        self.list = self.list.items(items);
-        self
-    }
-
-    pub fn block(mut self, block: Block<'a>) -> Self {
-        self.list = self.list.block(block);
-        self
-    }
-
-    pub fn highlight_style(mut self, style: Style) -> Self {
-        self.list = self.list.highlight_style(style);
-        self
-    }
-
-    pub fn highlight_symbol(mut self, symbol: &'a str) -> Self {
-        self.list = self.list.highlight_symbol(symbol);
-        self
-    }
-}
-
-impl<'a> StatefulWidget for LoopList<'a> {
-    type State = LoopListState;
-
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.render_ref(area, buf, state);
-    }
-}
-
-impl<'a> StatefulWidgetRef for LoopList<'a> {
-    type State = LoopListState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut LoopListState) {
-        StatefulWidgetRef::render_ref(&self.list, area, buf, &mut state.into());
+    fn is_selecting_first(&self) -> bool {
+        match self.list_state.selected() {
+            None => false,
+            Some(selected) => selected == 0,
+        }
     }
 }
