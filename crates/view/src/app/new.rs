@@ -4,12 +4,12 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{prelude::Backend, Terminal};
 use std::time::{Duration, Instant};
 
-pub struct App<'a> {
+pub struct App {
     should_quit: bool,
-    state: State<'a>,
+    state: State,
 }
 
-impl App<'_> {
+impl App {
     pub fn default() -> Self {
         Self {
             should_quit: false,
@@ -28,6 +28,7 @@ impl App<'_> {
             self.before_render();
 
             terminal.draw(|frame| {
+                log::info!("{:?}", &self.state);
                 Screen::new(frame, &mut self.state).render();
             })?;
 
@@ -127,6 +128,10 @@ impl App<'_> {
             return;
         }
 
+        match self.state.selecting_field {
+            SelectableField::Organization => self.state.organization.confirm(|org| org.to_string()),
+            _ => {}
+        }
         self.state.select_next_field();
     }
 
@@ -175,6 +180,7 @@ impl App<'_> {
         match self.state.selecting_field {
             SelectableField::Type => self.state.typ.select_previous(),
             SelectableField::Impact => self.state.impact.select_previous(),
+            SelectableField::Organization => self.state.organization.select_previous(),
             _ => self.state.select_previous_field(),
         }
     }
@@ -188,6 +194,7 @@ impl App<'_> {
         match self.state.selecting_field {
             SelectableField::Type => self.state.typ.select_next(),
             SelectableField::Impact => self.state.impact.select_next(),
+            SelectableField::Organization => self.state.organization.select_next(),
             _ => self.state.select_next_field(),
         }
     }

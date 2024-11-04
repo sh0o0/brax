@@ -89,7 +89,7 @@ impl SelectableField {
 }
 
 #[derive(Debug)]
-pub struct State<'a> {
+pub struct State {
     pub selecting_field: SelectableField,
     pub is_edit_mode: bool,
     pub is_expand_advanced: bool,
@@ -100,12 +100,13 @@ pub struct State<'a> {
     pub start_date: TextFieldState,
     pub end_date: TextFieldState,
 
-    pub organization: AutocompleteTextFieldState<'a, &'a str>,
+    // TODO(sh0o0): Change 'static to 'a
+    pub organization: AutocompleteTextFieldState<'static, &'static str>,
 
     pub content: String,
 }
 
-impl<'a> State<'a> {
+impl State {
     pub fn default() -> Self {
         let start_date = &mut TextFieldState::default();
         start_date.set_text(chrono::Local::now().naive_local().date().to_string());
@@ -119,7 +120,9 @@ impl<'a> State<'a> {
             impact: LoopListState::new(Impact::COUNT).with_selected(Some(0)),
             start_date: start_date.clone(),
             end_date: TextFieldState::default(),
-            organization: AutocompleteTextFieldState::new(&ORGANIZATIONS, |o, t| o.contains(t)),
+            organization: AutocompleteTextFieldState::new(&ORGANIZATIONS, |o, t| {
+                o.to_lowercase().contains(&t.to_lowercase())
+            }),
             content: "".to_string(),
         }
     }
@@ -171,11 +174,11 @@ impl<'a> State<'a> {
 
 pub struct Screen<'a, 'b> {
     frame: &'a mut Frame<'b>,
-    state: &'a mut State<'a>,
+    state: &'a mut State,
 }
 
 impl<'a, 'b> Screen<'a, 'b> {
-    pub fn new(frame: &'a mut Frame<'b>, state: &'a mut State<'a>) -> Self {
+    pub fn new(frame: &'a mut Frame<'b>, state: &'a mut State) -> Self {
         Self { frame, state }
     }
 
@@ -366,6 +369,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         let [organization_area] = Layout::vertical([Constraint::Max(3)]).areas(area);
 
         self.render_organization(organization_area);
+        self.render_organizations_popup_if_selecting(organization_area);
     }
 
     fn render_organization(&mut self, area: Rect) {
@@ -433,7 +437,9 @@ impl<'a, 'b> Screen<'a, 'b> {
 
         let list = AutocompleteTextFieldList::new(|o: &&str| {
             ListItem::new(vec![text::Line::from(Span::raw(*o))])
-        });
+        })
+        .block(Block::popup())
+        .app_highlight();
 
         self.render_stateful_popup_below_anchor(
             list,
@@ -522,6 +528,13 @@ trait BlockExt<'a> {
 impl<'a> BlockExt<'a> for Block<'a> {}
 
 impl<'a> LoopList<'a> {
+    fn app_highlight(self) -> Self {
+        self.highlight_style(Style::default().bold())
+            .highlight_symbol("> ")
+    }
+}
+
+impl<T> AutocompleteTextFieldList<'_, T> {
     fn app_highlight(self) -> Self {
         self.highlight_style(Style::default().bold())
             .highlight_symbol("> ")

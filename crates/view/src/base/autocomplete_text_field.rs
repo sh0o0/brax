@@ -24,19 +24,74 @@ pub struct AutocompleteTextFieldState<'a, T> {
 
 impl<'a, T> AutocompleteTextFieldState<'a, T> {
     pub fn new(items: &'a Vec<T>, filter: fn(&T, &str) -> bool) -> Self {
-        Self {
+        let mut i = Self {
             items: items,
             filter: filter,
             text_field: TextFieldState::default(),
             offset: 0,
             selected: None,
             filtered_items: Vec::new(),
-        }
+        };
+        i.filter();
+        i
     }
 
     pub fn update_items(&mut self, items: &'a Vec<T>) {
         self.items = items;
-        self.update_filtered_items();
+        self.filter();
+    }
+
+    pub fn select_first(&mut self) {
+        if self.filtered_items.is_empty() {
+            self.selected = None;
+            return;
+        }
+
+        self.selected = Some(0);
+    }
+
+    pub fn select_next(&mut self) {
+        if self.filtered_items.is_empty() {
+            self.selected = None;
+            return;
+        }
+
+        match self.selected {
+            None => self.selected = Some(0),
+            Some(selected) => {
+                if selected < self.filtered_items.len() - 1 {
+                    self.selected = Some(selected + 1);
+                } else {
+                    self.selected = Some(0);
+                }
+            }
+        }
+    }
+
+    pub fn select_previous(&mut self) {
+        if self.filtered_items.is_empty() {
+            self.selected = None;
+            return;
+        }
+
+        match self.selected {
+            None => self.selected = Some(self.filtered_items.len() - 1),
+            Some(selected) => {
+                if selected > 0 {
+                    self.selected = Some(selected - 1);
+                } else {
+                    self.selected = Some(self.filtered_items.len() - 1);
+                }
+            }
+        }
+    }
+
+    pub fn confirm(&mut self, extract_text: fn(&T) -> String) {
+        if let Some(selected) = self.selected {
+            let item = self.filtered_items[selected];
+            let text = extract_text(item);
+            self.text_field.set_text(text);
+        }
     }
 
     pub fn set_is_editing(&mut self, is_editing: bool) {
@@ -53,20 +108,30 @@ impl<'a, T> AutocompleteTextFieldState<'a, T> {
 
     pub fn enter_char(&mut self, c: char) {
         self.text_field.enter_char(c);
-        self.update_filtered_items();
+        self.filter();
     }
 
     pub fn delete_char(&mut self) {
         self.text_field.delete_char();
-        self.update_filtered_items();
+        self.filter();
     }
 
-    fn update_filtered_items(&mut self) {
+    fn filter(&mut self) {
+        let text = self.text_field.text();
+
+        if text.is_empty() {
+            self.filtered_items = self.items.iter().collect();
+            self.select_first();
+            return;
+        }
+
         self.filtered_items = self
             .items
             .iter()
-            .filter(|item| (self.filter)(item, self.text_field.text()))
+            .filter(|item| (self.filter)(item, text))
             .collect();
+
+        self.select_first();
     }
 }
 
@@ -145,6 +210,21 @@ impl<'a, T> AutocompleteTextFieldList<'a, T> {
             loop_list: LoopList::default(),
             _marker: std::marker::PhantomData,
         }
+    }
+
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.loop_list = self.loop_list.block(block);
+        self
+    }
+
+    pub fn highlight_style(mut self, style: Style) -> Self {
+        self.loop_list = self.loop_list.highlight_style(style);
+        self
+    }
+
+    pub fn highlight_symbol(mut self, symbol: &'a str) -> Self {
+        self.loop_list = self.loop_list.highlight_symbol(symbol);
+        self
     }
 }
 
