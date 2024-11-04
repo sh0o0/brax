@@ -59,7 +59,9 @@ impl App {
                     KeyCode::Char('c') => self.quit(),
                     KeyCode::Char('e') => self.on_end(),
                     KeyCode::Char('a') => self.on_start(),
-                    KeyCode::Char('i') => self.edit_content(terminal)?,
+                    KeyCode::Char('d') => self.on_delete_right(),
+                    KeyCode::Char('k') => self.on_delete_right_all(),
+                    KeyCode::Char('o') => self.edit_content(terminal)?,
                     _ => {}
                 }
                 return Ok(());
@@ -143,6 +145,34 @@ impl App {
 
     fn on_back_tab(&mut self) {
         self.state.select_previous_field();
+    }
+
+    fn on_delete_right_all(&mut self) {
+        if !self.state.is_edit_mode {
+            return;
+        }
+
+        match self.state.selecting_field {
+            SelectableField::Title => self.state.title.delete_right_all(),
+            SelectableField::StartDate => self.state.start_date.delete_right_all(),
+            SelectableField::EndDate => self.state.end_date.delete_right_all(),
+            SelectableField::Organization => self.state.organization.delete_right_all(),
+            _ => {}
+        }
+    }
+
+    fn on_delete_right(&mut self) {
+        if !self.state.is_edit_mode {
+            return;
+        }
+
+        match self.state.selecting_field {
+            SelectableField::Title => self.state.title.delete_right_char(),
+            SelectableField::StartDate => self.state.start_date.delete_right_char(),
+            SelectableField::EndDate => self.state.end_date.delete_right_char(),
+            SelectableField::Organization => self.state.organization.delete_right_char(),
+            _ => {}
+        }
     }
 
     fn on_end(&mut self) {
@@ -249,10 +279,10 @@ impl App {
         }
 
         match self.state.selecting_field {
-            SelectableField::Title => self.state.title.delete_char(),
-            SelectableField::StartDate => self.state.start_date.delete_char(),
-            SelectableField::EndDate => self.state.end_date.delete_char(),
-            SelectableField::Organization => self.state.organization.delete_char(),
+            SelectableField::Title => self.state.title.delete_left_char(),
+            SelectableField::StartDate => self.state.start_date.delete_left_char(),
+            SelectableField::EndDate => self.state.end_date.delete_left_char(),
+            SelectableField::Organization => self.state.organization.delete_left_char(),
             _ => {}
         }
     }

@@ -64,9 +64,7 @@ impl<'a> TextFieldState {
     }
 
     pub fn enter_char(&mut self, new_char: char) {
-        if !self.has_modified {
-            self.has_modified = true;
-        }
+        self.modify();
 
         let index = self.byte_index();
         self.text.insert(index, new_char);
@@ -89,34 +87,51 @@ impl<'a> TextFieldState {
         self.text[..self.byte_index()].width()
     }
 
-    pub fn delete_char(&mut self) {
-        if !self.has_modified {
-            self.has_modified = true;
-        }
+    pub fn delete_left_char(&mut self) {
+        self.modify();
 
         let is_not_cursor_leftmost = self.cursor_index != 0;
         if is_not_cursor_leftmost {
-            // Method "remove" is not used on the saved text for deleting the selected char.
-            // Reason: Using remove on String works on bytes instead of the chars.
-            // Using remove would require special care because of char boundaries.
-
             let current_index = self.cursor_index;
             let from_left_to_current_index = current_index - 1;
 
-            // Getting all characters before the selected character.
             let before_char_to_delete = self.text.chars().take(from_left_to_current_index);
-            // Getting all characters after selected character.
             let after_char_to_delete = self.text.chars().skip(current_index);
 
-            // Put all characters together except the selected one.
-            // By leaving the selected one out, it is forgotten and therefore deleted.
             self.text = before_char_to_delete.chain(after_char_to_delete).collect();
             self.move_cursor_left();
         }
     }
 
+    pub fn delete_right_char(&mut self) {
+        self.modify();
+
+        let is_not_cursor_rightmost = self.cursor_index != self.text.chars().count();
+        if is_not_cursor_rightmost {
+            let current_index = self.cursor_index;
+            let from_current_to_right_index = current_index + 1;
+
+            let before_char_to_delete = self.text.chars().take(current_index);
+            let after_char_to_delete = self.text.chars().skip(from_current_to_right_index);
+
+            self.text = before_char_to_delete.chain(after_char_to_delete).collect();
+        }
+    }
+
+    pub fn delete_right_all(&mut self) {
+        self.modify();
+
+        self.text = self.text.chars().take(self.cursor_index).collect();
+    }
+
     pub fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
         new_cursor_pos.clamp(0, self.text.chars().count())
+    }
+
+    fn modify(&mut self) {
+        if !self.has_modified {
+            self.has_modified = true;
+        }
     }
 }
 

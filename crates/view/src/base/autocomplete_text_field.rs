@@ -80,8 +80,18 @@ impl<'a, T> AutocompleteTextFieldState<'a, T> {
         self.filter();
     }
 
-    pub fn delete_char(&mut self) {
-        self.text_field.delete_char();
+    pub fn delete_left_char(&mut self) {
+        self.text_field.delete_left_char();
+        self.filter();
+    }
+
+    pub fn delete_right_char(&mut self) {
+        self.text_field.delete_right_char();
+        self.filter();
+    }
+
+    pub fn delete_right_all(&mut self) {
+        self.text_field.delete_right_all();
         self.filter();
     }
 
