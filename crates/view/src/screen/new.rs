@@ -249,7 +249,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         };
 
         let status = self.status_of(SelectableField::Type);
-        let typ = Paragraph::new(typ_text.app_default())
+        let typ = Paragraph::new(typ_text.span())
             .block(status.block().title(SelectableField::Type.title()))
             .style(status.style());
 
@@ -269,7 +269,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         };
 
         let status = self.status_of(SelectableField::Impact);
-        let impact = Paragraph::new(impact_text.app_default())
+        let impact = Paragraph::new(impact_text.span())
             .block(status.block().title(SelectableField::Impact.title()))
             .style(status.style());
 
@@ -385,7 +385,7 @@ impl<'a, 'b> Screen<'a, 'b> {
 
         let items = Type::VARIANTS
             .iter()
-            .map(|t| ListItem::new(vec![text::Line::from(Span::raw(t.text()))]))
+            .map(|t| ListItem::new(vec![text::Line::from(t.text().span())]))
             .collect::<Vec<_>>();
         let list = List::new(items).app_highlight().block(Block::popup());
 
@@ -404,7 +404,7 @@ impl<'a, 'b> Screen<'a, 'b> {
 
         let items = Impact::VARIANTS
             .iter()
-            .map(|i| ListItem::new(vec![text::Line::from(Span::raw(i.text()))]))
+            .map(|i| ListItem::new(vec![text::Line::from(i.text().span())]))
             .collect::<Vec<_>>();
 
         let list = List::new(items).app_highlight().block(Block::popup());
@@ -423,7 +423,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         }
 
         let list = AutocompleteTextFieldList::new(|o: &&str| {
-            ListItem::new(vec![text::Line::from(Span::raw(*o))])
+            ListItem::new(vec![text::Line::from(o.to_string().span())])
         })
         .block(Block::popup())
         .app_highlight();
@@ -505,18 +505,20 @@ impl Status {
 }
 
 trait StringExt {
-    fn app_default(self) -> Span<'static>;
+    fn span(self) -> Span<'static>;
 }
 
 impl StringExt for String {
-    fn app_default(self) -> Span<'static> {
+    fn span(self) -> Span<'static> {
         self.gray()
     }
 }
 
 trait BlockExt<'a> {
     fn popup() -> Block<'a> {
-        Block::bordered().border_type(BorderType::Double)
+        Block::bordered()
+            .border_type(BorderType::Double)
+            .fg(COLORS.primary)
     }
 }
 
