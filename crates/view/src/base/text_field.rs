@@ -6,6 +6,7 @@ use ratatui::{
     widgets::{Block, Paragraph, StatefulWidget, StatefulWidgetRef, Widget},
     Frame,
 };
+use unicode_width::UnicodeWidthStr;
 
 use crate::utils::tui::StatefulDrawer;
 
@@ -44,10 +45,6 @@ impl<'a> TextFieldState {
         self.is_editing = is_editing;
     }
 
-    pub fn cursor_index(&self) -> usize {
-        self.cursor_index
-    }
-
     pub fn move_cursor_left(&mut self) {
         let cursor_moved_left = self.cursor_index.saturating_sub(1);
         self.cursor_index = self.clamp_cursor(cursor_moved_left);
@@ -56,6 +53,14 @@ impl<'a> TextFieldState {
     pub fn move_cursor_right(&mut self) {
         let cursor_moved_right = self.cursor_index.saturating_add(1);
         self.cursor_index = self.clamp_cursor(cursor_moved_right);
+    }
+
+    pub fn move_cursor_to_start(&mut self) {
+        self.cursor_index = 0;
+    }
+
+    pub fn move_cursor_to_end(&mut self) {
+        self.cursor_index = self.text.chars().count();
     }
 
     pub fn enter_char(&mut self, new_char: char) {
@@ -78,6 +83,10 @@ impl<'a> TextFieldState {
             .map(|(i, _)| i)
             .nth(self.cursor_index)
             .unwrap_or(self.text.len())
+    }
+
+    pub fn unicode_index(&self) -> usize {
+        self.text[..self.byte_index()].width()
     }
 
     pub fn delete_char(&mut self) {
@@ -108,10 +117,6 @@ impl<'a> TextFieldState {
 
     pub fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
         new_cursor_pos.clamp(0, self.text.chars().count())
-    }
-
-    pub fn reset_cursor(&mut self) {
-        self.cursor_index = 0;
     }
 }
 
@@ -205,7 +210,7 @@ impl StatefulDrawer for TextField<'_> {
 
     fn draw(self, frame: &mut Frame, area: Rect, state: &mut Self::State) {
         if state.is_editing {
-            let cursor_pos = state.cursor_index() as u16;
+            let cursor_pos = state.unicode_index() as u16;
             let position = Position {
                 x: area.x + cursor_pos + 1,
                 y: area.y + 1,

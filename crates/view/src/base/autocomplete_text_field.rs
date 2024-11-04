@@ -67,6 +67,14 @@ impl<'a, T> AutocompleteTextFieldState<'a, T> {
         self.text_field.move_cursor_right();
     }
 
+    pub fn move_cursor_to_start(&mut self) {
+        self.text_field.move_cursor_to_start();
+    }
+
+    pub fn move_cursor_to_end(&mut self) {
+        self.text_field.move_cursor_to_end();
+    }
+
     pub fn enter_char(&mut self, c: char) {
         self.text_field.enter_char(c);
         self.filter();

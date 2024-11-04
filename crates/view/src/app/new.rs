@@ -57,7 +57,9 @@ impl App {
                     KeyCode::Char('b') => self.on_left(),
                     KeyCode::Char('f') => self.on_right(),
                     KeyCode::Char('c') => self.quit(),
-                    KeyCode::Char('e') => self.edit_content(terminal)?,
+                    KeyCode::Char('e') => self.on_end(),
+                    KeyCode::Char('a') => self.on_start(),
+                    KeyCode::Char('i') => self.edit_content(terminal)?,
                     _ => {}
                 }
                 return Ok(());
@@ -141,6 +143,34 @@ impl App {
 
     fn on_back_tab(&mut self) {
         self.state.select_previous_field();
+    }
+
+    fn on_end(&mut self) {
+        if !self.state.is_edit_mode {
+            return;
+        }
+
+        match self.state.selecting_field {
+            SelectableField::Title => self.state.title.move_cursor_to_end(),
+            SelectableField::StartDate => self.state.start_date.move_cursor_to_end(),
+            SelectableField::EndDate => self.state.end_date.move_cursor_to_end(),
+            SelectableField::Organization => self.state.organization.move_cursor_to_end(),
+            _ => {}
+        }
+    }
+
+    fn on_start(&mut self) {
+        if !self.state.is_edit_mode {
+            return;
+        }
+
+        match self.state.selecting_field {
+            SelectableField::Title => self.state.title.move_cursor_to_start(),
+            SelectableField::StartDate => self.state.start_date.move_cursor_to_start(),
+            SelectableField::EndDate => self.state.end_date.move_cursor_to_start(),
+            SelectableField::Organization => self.state.organization.move_cursor_to_start(),
+            _ => {}
+        }
     }
 
     fn on_left(&mut self) {

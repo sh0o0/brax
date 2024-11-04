@@ -15,3 +15,4 @@ strum = { workspace = true }
 regex = { workspace = true }
 lazy_static = "1.5.0"
 dialoguer = "0.11.0"
+unicode-width = "0.2.0"
