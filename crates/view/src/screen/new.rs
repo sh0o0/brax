@@ -2,27 +2,47 @@ use std::ops::Index;
 
 use crate::{
     base::{
+        autocomplete_text_field::{
+            AutocompleteTextField, AutocompleteTextFieldList, AutocompleteTextFieldState,
+        },
         loop_list::{LoopList, LoopListState},
-        text_field::{TextField, TextFieldFrame, TextFieldState},
+        text_field::{TextField, TextFieldState},
     },
     config::colors::COLORS,
     utils::{
         self,
         constant::{TEXT_DOWN_ARROW, TEXT_RIGHT_ARROW},
         text::Txt,
+        tui::StatefulDrawer,
     },
 };
 use domain::brag::{Impact, Type};
 
+use lazy_static::lazy_static;
 use ratatui::{
     layout::{Constraint, Layout, Offset, Rect},
     style::{Style, Stylize},
     text::{self, Span},
-    widgets::{block::title, Block, BorderType, Clear, ListItem, Paragraph, StatefulWidget},
+    widgets::{Block, BorderType, Clear, ListItem, Paragraph, StatefulWidget},
     Frame,
 };
 use regex::Regex;
 use strum::{EnumCount, VariantArray};
+
+lazy_static! {
+    static ref ORGANIZATIONS: Vec<&'static str> = vec![
+        "Google",
+        "Facebook",
+        "Amazon",
+        "Netflix",
+        "Apple",
+        "Microsoft",
+        "Twitter",
+        "LinkedIn",
+        "Uber",
+        "Airbnb",
+    ];
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, strum::VariantArray, strum::EnumIs)]
 pub enum SelectableField {
@@ -69,7 +89,7 @@ impl SelectableField {
 }
 
 #[derive(Debug)]
-pub struct State {
+pub struct State<'a> {
     pub selecting_field: SelectableField,
     pub is_edit_mode: bool,
     pub is_expand_advanced: bool,
@@ -79,10 +99,13 @@ pub struct State {
     pub impact: LoopListState,
     pub start_date: TextFieldState,
     pub end_date: TextFieldState,
+
+    pub organization: AutocompleteTextFieldState<'a, &'a str>,
+
     pub content: String,
 }
 
-impl<'a> State {
+impl<'a> State<'a> {
     pub fn default() -> Self {
         let start_date = &mut TextFieldState::default();
         start_date.set_text(chrono::Local::now().naive_local().date().to_string());
@@ -92,10 +115,11 @@ impl<'a> State {
             is_edit_mode: true,
             is_expand_advanced: false,
             title: TextFieldState::default(),
-            typ: LoopListState::default(Type::COUNT).with_selected(Some(0)),
-            impact: LoopListState::default(Impact::COUNT).with_selected(Some(0)),
+            typ: LoopListState::new(Type::COUNT).with_selected(Some(0)),
+            impact: LoopListState::new(Impact::COUNT).with_selected(Some(0)),
             start_date: start_date.clone(),
             end_date: TextFieldState::default(),
+            organization: AutocompleteTextFieldState::new(&ORGANIZATIONS, |o, t| o.contains(t)),
             content: "".to_string(),
         }
     }
@@ -147,11 +171,11 @@ impl<'a> State {
 
 pub struct Screen<'a, 'b> {
     frame: &'a mut Frame<'b>,
-    state: &'a mut State,
+    state: &'a mut State<'a>,
 }
 
 impl<'a, 'b> Screen<'a, 'b> {
-    pub fn new(frame: &'a mut Frame<'b>, state: &'a mut State) -> Self {
+    pub fn new(frame: &'a mut Frame<'b>, state: &'a mut State<'a>) -> Self {
         Self { frame, state }
     }
 
@@ -211,8 +235,7 @@ impl<'a, 'b> Screen<'a, 'b> {
                 None
             });
 
-        self.frame
-            .render_text_field(title, area, &mut self.state.title);
+        title.draw(self.frame, area, &mut self.state.title);
     }
 
     fn render_typ(&mut self, area: Rect) {
@@ -279,8 +302,7 @@ impl<'a, 'b> Screen<'a, 'b> {
                 None
             });
 
-        self.frame
-            .render_text_field(start_date, area, &mut self.state.start_date);
+        start_date.draw(self.frame, area, &mut self.state.start_date);
     }
 
     fn render_end_date(&mut self, area: Rect) {
@@ -304,8 +326,7 @@ impl<'a, 'b> Screen<'a, 'b> {
                 None
             });
 
-        self.frame
-            .render_text_field(end_date, area, &mut self.state.end_date);
+        end_date.draw(self.frame, area, &mut self.state.end_date);
     }
 
     fn render_advanced(&mut self, area: Rect) {
@@ -353,12 +374,11 @@ impl<'a, 'b> Screen<'a, 'b> {
             (SelectableField::Organization, true) => Status::Editing,
             _ => Status::Displaying,
         };
-        let organization = TextField::new()
+        let organization = AutocompleteTextField::default()
             .block(status.block().title(SelectableField::Organization.title()))
             .style(status.style());
 
-        self.frame
-            .render_text_field(organization, area, &mut TextFieldState::default());
+        organization.draw(self.frame, area, &mut self.state.organization);
     }
 
     fn render_content(&mut self, area: Rect) {
@@ -381,10 +401,7 @@ impl<'a, 'b> Screen<'a, 'b> {
             .iter()
             .map(|t| ListItem::new(vec![text::Line::from(Span::raw(t.text()))]))
             .collect::<Vec<_>>();
-        let list = LoopList::new(items)
-            .highlight_style(Style::default().bold())
-            .highlight_symbol("> ")
-            .block(Block::popup());
+        let list = LoopList::new(items).app_highlight().block(Block::popup());
 
         self.render_stateful_popup_below_anchor(list, &mut self.state.typ.clone(), typ_area, 8);
     }
@@ -399,15 +416,29 @@ impl<'a, 'b> Screen<'a, 'b> {
             .map(|i| ListItem::new(vec![text::Line::from(Span::raw(i.text()))]))
             .collect::<Vec<_>>();
 
-        let list = LoopList::new(items)
-            .highlight_style(Style::default().bold())
-            .highlight_symbol("> ")
-            .block(Block::popup());
+        let list = LoopList::new(items).app_highlight().block(Block::popup());
 
         self.render_stateful_popup_below_anchor(
             list,
             &mut self.state.impact.clone(),
             impact_area,
+            7,
+        );
+    }
+
+    fn render_organizations_popup_if_selecting(&mut self, organization_area: Rect) {
+        if !self.state.selecting_field.is_organization() || !self.state.is_edit_mode {
+            return;
+        }
+
+        let list = AutocompleteTextFieldList::new(|o: &&str| {
+            ListItem::new(vec![text::Line::from(Span::raw(*o))])
+        });
+
+        self.render_stateful_popup_below_anchor(
+            list,
+            &mut self.state.organization.clone(),
+            organization_area,
             7,
         );
     }
@@ -490,6 +521,13 @@ trait BlockExt<'a> {
 
 impl<'a> BlockExt<'a> for Block<'a> {}
 
+impl<'a> LoopList<'a> {
+    fn app_highlight(self) -> Self {
+        self.highlight_style(Style::default().bold())
+            .highlight_symbol("> ")
+    }
+}
+
 impl utils::text::Txt for Type {
     fn text(&self) -> String {
         match self {
@@ -515,6 +553,6 @@ impl utils::text::Txt for Impact {
     }
 }
 
-lazy_static::lazy_static! {
+lazy_static! {
     static ref DATE_REGEX: Regex = Regex::new(r"^\d{4}(-\d{2}(-\d{2})?)?$").unwrap();
 }

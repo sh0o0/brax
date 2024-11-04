@@ -21,12 +21,17 @@ impl Into<ListState> for &mut LoopListState {
 }
 
 impl LoopListState {
-    pub fn default(len: usize) -> Self {
+    pub fn new(len: usize) -> Self {
         Self {
             offset: 0,
             selected: None,
             len,
         }
+    }
+
+    pub fn with_offset(mut self, offset: usize) -> Self {
+        self.offset = offset;
+        self
     }
 
     pub fn with_selected(mut self, selected: Option<usize>) -> Self {
@@ -69,6 +74,7 @@ impl LoopListState {
     }
 }
 
+#[derive(Debug, Default, Clone)]
 pub struct LoopList<'a> {
     list: List<'a>,
 }
@@ -82,6 +88,15 @@ impl<'a> LoopList<'a> {
         Self {
             list: List::new(items),
         }
+    }
+
+    pub fn items<T>(mut self, items: T) -> Self
+    where
+        T: IntoIterator,
+        T::Item: Into<ListItem<'a>>,
+    {
+        self.list = self.list.items(items);
+        self
     }
 
     pub fn block(mut self, block: Block<'a>) -> Self {

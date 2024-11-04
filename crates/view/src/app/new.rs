@@ -4,12 +4,12 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{prelude::Backend, Terminal};
 use std::time::{Duration, Instant};
 
-pub struct App {
+pub struct App<'a> {
     should_quit: bool,
-    state: State,
+    state: State<'a>,
 }
 
-impl App {
+impl App<'_> {
     pub fn default() -> Self {
         Self {
             should_quit: false,
@@ -107,6 +107,9 @@ impl App {
         self.state
             .end_date
             .set_is_editing(self.state.selecting_field == SelectableField::EndDate);
+        self.state
+            .organization
+            .set_is_editing(self.state.selecting_field == SelectableField::Organization);
     }
 
     fn on_escape(&mut self) {
@@ -144,6 +147,7 @@ impl App {
             SelectableField::Title => self.state.title.move_cursor_left(),
             SelectableField::StartDate => self.state.start_date.move_cursor_left(),
             SelectableField::EndDate => self.state.end_date.move_cursor_left(),
+            SelectableField::Organization => self.state.organization.move_cursor_left(),
             _ => {}
         }
     }
@@ -157,6 +161,7 @@ impl App {
             SelectableField::Title => self.state.title.move_cursor_right(),
             SelectableField::StartDate => self.state.start_date.move_cursor_right(),
             SelectableField::EndDate => self.state.end_date.move_cursor_right(),
+            SelectableField::Organization => self.state.organization.move_cursor_right(),
             _ => {}
         }
     }
@@ -196,6 +201,7 @@ impl App {
             SelectableField::Title => self.state.title.enter_char(c),
             SelectableField::StartDate => self.state.start_date.enter_char(c),
             SelectableField::EndDate => self.state.end_date.enter_char(c),
+            SelectableField::Organization => self.state.organization.enter_char(c),
             _ => {}
         }
     }
@@ -209,6 +215,7 @@ impl App {
             SelectableField::Title => self.state.title.delete_char(),
             SelectableField::StartDate => self.state.start_date.delete_char(),
             SelectableField::EndDate => self.state.end_date.delete_char(),
+            SelectableField::Organization => self.state.organization.delete_char(),
             _ => {}
         }
     }

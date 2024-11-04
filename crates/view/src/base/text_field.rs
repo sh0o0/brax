@@ -7,6 +7,8 @@ use ratatui::{
     Frame,
 };
 
+use crate::utils::tui::StatefulDrawer;
+
 #[derive(Debug, Clone)]
 pub struct TextFieldState {
     text: String,
@@ -115,6 +117,7 @@ impl<'a> TextFieldState {
 
 pub type Validator = fn(String) -> Option<String>;
 
+#[derive(Debug, Default)]
 pub struct TextField<'a> {
     block: Option<Block<'a>>,
     validator: Option<Validator>,
@@ -164,7 +167,7 @@ impl<'a> StatefulWidget for TextField<'a> {
 impl<'a> StatefulWidgetRef for TextField<'a> {
     type State = TextFieldState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut TextFieldState) {
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let mut paragraph = Paragraph::new(match state.text() {
             "" => self.helper.clone().unwrap_or_default().dark_gray(),
             text => text.gray().into(),
@@ -197,21 +200,19 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
     }
 }
 
-pub trait TextFieldFrame {
-    fn render_text_field(&mut self, text_field: TextField, area: Rect, state: &mut TextFieldState);
-}
+impl StatefulDrawer for TextField<'_> {
+    type State = TextFieldState;
 
-impl<'a> TextFieldFrame for Frame<'a> {
-    fn render_text_field(&mut self, text_field: TextField, area: Rect, state: &mut TextFieldState) {
+    fn draw(self, frame: &mut Frame, area: Rect, state: &mut Self::State) {
         if state.is_editing {
             let cursor_pos = state.cursor_index() as u16;
             let position = Position {
                 x: area.x + cursor_pos + 1,
                 y: area.y + 1,
             };
-            self.set_cursor_position(position);
+            frame.set_cursor_position(position);
         }
 
-        self.render_stateful_widget(text_field, area, state);
+        frame.render_stateful_widget(self, area, state);
     }
 }
