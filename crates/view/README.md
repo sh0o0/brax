@@ -19,3 +19,4 @@ Screen --> Base
 
 - [ ] Handler
 - [ ] Model
+- [ ] Separate widgets to files

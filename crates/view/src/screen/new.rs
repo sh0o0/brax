@@ -218,12 +218,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_title(&mut self, area: Rect) {
-        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
-            (SelectableField::Title, false) => Status::Selecting,
-            (SelectableField::Title, true) => Status::Editing,
-            _ => Status::Displaying,
-        };
-
+        let status = self.status_of(SelectableField::Title);
         let title = TextField::new()
             .block(status.block().title(SelectableField::Title.title()))
             .style(status.style())
@@ -246,12 +241,8 @@ impl<'a, 'b> Screen<'a, 'b> {
             Some(typ) => typ.text(),
             None => "Select a type".to_string(),
         };
-        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
-            (SelectableField::Type, false) => Status::Selecting,
-            (SelectableField::Type, true) => Status::Editing,
-            _ => Status::Displaying,
-        };
 
+        let status = self.status_of(SelectableField::Type);
         let typ = Paragraph::new(typ_text.app_default())
             .block(status.block().title(SelectableField::Type.title()))
             .style(status.style());
@@ -270,12 +261,7 @@ impl<'a, 'b> Screen<'a, 'b> {
             None => "Select an impact".to_string(),
         };
 
-        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
-            (SelectableField::Impact, false) => Status::Selecting,
-            (SelectableField::Impact, true) => Status::Editing,
-            _ => Status::Displaying,
-        };
-
+        let status = self.status_of(SelectableField::Impact);
         let impact = Paragraph::new(impact_text.app_default())
             .block(status.block().title(SelectableField::Impact.title()))
             .style(status.style());
@@ -284,11 +270,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_start_date(&mut self, area: Rect) {
-        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
-            (SelectableField::StartDate, false) => Status::Selecting,
-            (SelectableField::StartDate, true) => Status::Editing,
-            _ => Status::Displaying,
-        };
+        let status = self.status_of(SelectableField::StartDate);
         let start_date = TextField::new()
             .block(status.block().title(SelectableField::StartDate.title()))
             .style(status.style())
@@ -309,11 +291,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_end_date(&mut self, area: Rect) {
-        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
-            (SelectableField::EndDate, false) => Status::Selecting,
-            (SelectableField::EndDate, true) => Status::Editing,
-            _ => Status::Displaying,
-        };
+        let status = self.status_of(SelectableField::EndDate);
         let end_date = TextField::new()
             .block(status.block().title(SelectableField::EndDate.title()))
             .style(status.style())
@@ -373,11 +351,7 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_organization(&mut self, area: Rect) {
-        let status = match (&self.state.selecting_field, self.state.is_edit_mode) {
-            (SelectableField::Organization, false) => Status::Selecting,
-            (SelectableField::Organization, true) => Status::Editing,
-            _ => Status::Displaying,
-        };
+        let status = self.status_of(SelectableField::Organization);
         let organization = AutocompleteTextField::default()
             .block(status.block().title(SelectableField::Organization.title()))
             .style(status.style());
@@ -386,7 +360,8 @@ impl<'a, 'b> Screen<'a, 'b> {
     }
 
     fn render_content(&mut self, area: Rect) {
-        let content = Paragraph::new(self.state.content.to_string());
+        let content = Paragraph::new(self.state.content.to_string())
+            .block(Status::Displaying.block().title("Content"));
 
         self.frame.render_widget(content, area);
     }
@@ -468,6 +443,14 @@ impl<'a, 'b> Screen<'a, 'b> {
         self.frame.render_widget(Clear, area);
         self.frame
             .render_stateful_widget(widget, indented_area, state);
+    }
+
+    fn status_of(&self, field: SelectableField) -> Status {
+        match (&self.state.selecting_field, self.state.is_edit_mode) {
+            (f, false) if f == &field => Status::Selecting,
+            (f, true) if f == &field => Status::Editing,
+            _ => Status::Displaying,
+        }
     }
 }
 
