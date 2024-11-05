@@ -1,12 +1,16 @@
-use crate::screen::new::{Screen, SelectableField, State};
+use crate::{
+    handler::handler::KeyEventHandler,
+    screen::new::{Screen, SelectableField, State},
+};
 
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{prelude::Backend, Terminal};
 use std::time::{Duration, Instant};
 
 pub struct App {
     should_quit: bool,
     state: State,
+    should_clear_terminal: bool,
 }
 
 impl App {
@@ -14,6 +18,7 @@ impl App {
         Self {
             should_quit: false,
             state: State::default(),
+            should_clear_terminal: false,
         }
     }
 
@@ -25,6 +30,11 @@ impl App {
         let last_tick = Instant::now();
 
         while !self.should_quit {
+            if self.should_clear_terminal {
+                terminal.clear()?;
+                self.should_clear_terminal = false;
+            }
+
             self.before_render();
 
             terminal.draw(|frame| {
@@ -33,57 +43,10 @@ impl App {
             })?;
 
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
-            self.handle_event(timeout, terminal)?;
-        }
-
-        Ok(())
-    }
-
-    fn handle_event<B: Backend>(
-        &mut self,
-        timeout: Duration,
-        terminal: &mut Terminal<B>,
-    ) -> util::error::Result<()> {
-        if !event::poll(timeout)? {
-            return Ok(());
-        }
-
-        if let Event::Key(key) = event::read()? {
-            if key.modifiers == event::KeyModifiers::CONTROL {
-                match key.code {
-                    KeyCode::Char('p') => self.on_up(),
-                    KeyCode::Char('n') => self.on_down(),
-                    KeyCode::Char('h') => self.on_delete(),
-                    KeyCode::Char('b') => self.on_left(),
-                    KeyCode::Char('f') => self.on_right(),
-                    KeyCode::Char('c') => self.quit(),
-                    KeyCode::Char('e') => self.on_end(),
-                    KeyCode::Char('a') => self.on_start(),
-                    KeyCode::Char('d') => self.on_delete_right(),
-                    KeyCode::Char('k') => self.on_delete_right_all(),
-                    KeyCode::Char('o') => self.edit_content(terminal)?,
-                    _ => {}
+            if event::poll(timeout)? {
+                if let Event::Key(key) = event::read()? {
+                    self.handle_key_event(&key)?;
                 }
-                return Ok(());
-            }
-
-            if key.kind == KeyEventKind::Press {
-                match key.code {
-                    KeyCode::Esc => self.on_escape(),
-                    KeyCode::Tab => self.on_tab(),
-                    KeyCode::BackTab => self.on_back_tab(),
-                    KeyCode::Up => self.on_up(),
-                    KeyCode::Down => self.on_down(),
-                    KeyCode::Left => self.on_left(),
-                    KeyCode::Right => self.on_right(),
-                    KeyCode::Delete | KeyCode::Backspace => self.on_delete(),
-                    KeyCode::Enter => self.on_enter(),
-                    KeyCode::Char('k') => self.on_k(),
-                    KeyCode::Char('j') => self.on_j(),
-                    KeyCode::Char(c) => self.on_char(c),
-                    _ => {}
-                }
-                return Ok(());
             }
         }
 
@@ -94,11 +57,11 @@ impl App {
         self.should_quit = true;
     }
 
-    fn edit_content<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> util::error::Result<()> {
+    fn edit_content(&mut self) -> util::error::Result<()> {
+        self.should_clear_terminal = true;
+
         let result = dialoguer::Editor::new().edit(&self.state.content)?;
         result.map(|content| self.state.content = content);
-
-        terminal.clear()?;
         Ok(())
     }
 
@@ -313,5 +276,61 @@ impl App {
             SelectableField::Type | SelectableField::Impact => self.on_down(),
             _ => self.on_char(J),
         }
+    }
+
+    fn get_key_event_handler(&mut self) -> Option<&mut dyn KeyEventHandler> {
+        match self.state.selecting_field {
+            SelectableField::Title => Some(&mut self.state.title),
+            SelectableField::StartDate => Some(&mut self.state.start_date),
+            SelectableField::EndDate => Some(&mut self.state.end_date),
+            _ => None,
+        }
+    }
+}
+
+impl KeyEventHandler for App {
+    fn handle_key_event(&mut self, key: &KeyEvent) -> util::error::Result<()> {
+        if let Some(handler) = self.get_key_event_handler() {
+            return handler.handle_key_event(key);
+        }
+
+        if key.modifiers == event::KeyModifiers::CONTROL {
+            match key.code {
+                KeyCode::Char('p') => self.on_up(),
+                KeyCode::Char('n') => self.on_down(),
+                KeyCode::Char('h') => self.on_delete(),
+                KeyCode::Char('b') => self.on_left(),
+                KeyCode::Char('f') => self.on_right(),
+                KeyCode::Char('c') => self.quit(),
+                KeyCode::Char('e') => self.on_end(),
+                KeyCode::Char('a') => self.on_start(),
+                KeyCode::Char('d') => self.on_delete_right(),
+                KeyCode::Char('k') => self.on_delete_right_all(),
+                KeyCode::Char('o') => self.edit_content()?,
+                _ => {}
+            }
+            return Ok(());
+        }
+
+        if key.kind == KeyEventKind::Press {
+            match key.code {
+                KeyCode::Esc => self.on_escape(),
+                KeyCode::Tab => self.on_tab(),
+                KeyCode::BackTab => self.on_back_tab(),
+                KeyCode::Up => self.on_up(),
+                KeyCode::Down => self.on_down(),
+                KeyCode::Left => self.on_left(),
+                KeyCode::Right => self.on_right(),
+                KeyCode::Delete | KeyCode::Backspace => self.on_delete(),
+                KeyCode::Enter => self.on_enter(),
+                KeyCode::Char('k') => self.on_k(),
+                KeyCode::Char('j') => self.on_j(),
+                KeyCode::Char(c) => self.on_char(c),
+                _ => {}
+            }
+            return Ok(());
+        }
+
+        Ok(())
     }
 }
