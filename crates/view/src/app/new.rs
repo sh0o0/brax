@@ -3,22 +3,22 @@ use crate::{
     screen::new::{Screen, SelectableField, State},
 };
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use ratatui::{prelude::Backend, Terminal};
 use std::time::{Duration, Instant};
 
 pub struct App {
     should_quit: bool,
-    state: State,
     should_clear_terminal: bool,
+    state: State,
 }
 
 impl App {
     pub fn default() -> Self {
         Self {
             should_quit: false,
-            state: State::default(),
             should_clear_terminal: false,
+            state: State::default(),
         }
     }
 
@@ -27,7 +27,7 @@ impl App {
         terminal: &mut Terminal<B>,
         tick_rate: Duration,
     ) -> util::error::Result<()> {
-        let last_tick = Instant::now();
+        let mut last_tick = Instant::now();
 
         while !self.should_quit {
             if self.should_clear_terminal {
@@ -35,7 +35,7 @@ impl App {
                 self.should_clear_terminal = false;
             }
 
-            self.before_render();
+            self.before_draw();
 
             terminal.draw(|frame| {
                 log::info!("{:?}", &self.state);
@@ -47,6 +47,10 @@ impl App {
                 if let Event::Key(key) = event::read()? {
                     self.handle_key_event(&key)?;
                 }
+            }
+
+            if last_tick.elapsed() >= tick_rate {
+                last_tick = Instant::now();
             }
         }
 
@@ -65,7 +69,7 @@ impl App {
         Ok(())
     }
 
-    fn before_render(&mut self) {
+    fn before_draw(&mut self) {
         self.state
             .title
             .set_is_editing(self.state.selecting_field == SelectableField::Title);
@@ -83,7 +87,7 @@ impl App {
 
 impl KeyEventHandler for App {
     fn handle_key_event(&mut self, key: &KeyEvent) -> util::error::Result<()> {
-        if self.may_intercept_key_event(key)? {
+        if self.maybe_intercept_key_event(key)? {
             return Ok(());
         }
 
@@ -129,7 +133,7 @@ impl KeyEventHandler for App {
 }
 
 impl App {
-    fn may_intercept_key_event(&mut self, key: &KeyEvent) -> util::error::Result<bool> {
+    fn maybe_intercept_key_event(&mut self, key: &KeyEvent) -> util::error::Result<bool> {
         if key.modifiers == event::KeyModifiers::CONTROL {
             match key.code {
                 KeyCode::Char('c') => self.quit(),

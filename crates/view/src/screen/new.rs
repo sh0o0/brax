@@ -106,8 +106,8 @@ pub struct State {
     pub content: String,
 }
 
-impl State {
-    pub fn default() -> Self {
+impl Default for State {
+    fn default() -> Self {
         let start_date = &mut TextFieldState::default();
         start_date.set_text(chrono::Local::now().naive_local().date().to_string());
 
@@ -128,7 +128,9 @@ impl State {
             content: "".to_string(),
         }
     }
+}
 
+impl State {
     pub fn select_next_field(&mut self) {
         self.selecting_field = self
             .selecting_field
