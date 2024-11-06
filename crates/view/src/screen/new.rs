@@ -136,10 +136,10 @@ impl State {
             .selecting_field
             .clone()
             .next()
-            .unwrap_or(SelectableField::VARIANTS.first().unwrap().clone());
+            .unwrap_or(self.first_field());
 
         if self.should_skip_advanced_fields() {
-            self.selecting_field = SelectableField::VARIANTS.first().unwrap().clone();
+            self.select_first_field();
         }
     }
 
@@ -148,7 +148,7 @@ impl State {
             .selecting_field
             .clone()
             .prev()
-            .unwrap_or(SelectableField::VARIANTS.last().unwrap().clone());
+            .unwrap_or(self.last_field());
 
         if self.should_skip_advanced_fields() {
             self.select_advanced_field();
@@ -181,6 +181,18 @@ impl State {
         }
 
         ADVANCED_FIELDS.contains(&self.selecting_field)
+    }
+
+    fn select_first_field(&mut self) {
+        self.selecting_field = self.first_field()
+    }
+
+    fn first_field(&self) -> SelectableField {
+        SelectableField::VARIANTS[0].clone()
+    }
+
+    fn last_field(&self) -> SelectableField {
+        SelectableField::VARIANTS.last().unwrap().clone()
     }
 }
 
