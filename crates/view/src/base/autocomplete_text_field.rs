@@ -19,16 +19,22 @@ pub struct AutocompleteTextFieldState<'a, T> {
     filter: fn(&T, &str) -> bool,
     filtered_items: Vec<&'a T>,
     loop_list_state: LoopListState,
+    extract_text_for_confirm: fn(&T) -> String,
 }
 
 impl<'a, T> AutocompleteTextFieldState<'a, T> {
-    pub fn new(items: &'a Vec<T>, filter: fn(&T, &str) -> bool) -> Self {
+    pub fn new(
+        items: &'a Vec<T>,
+        filter: fn(&T, &str) -> bool,
+        extract_text_for_confirm: fn(&T) -> String,
+    ) -> Self {
         let mut i = Self {
             items: items,
             filter: filter,
             text_field: TextFieldState::default(),
             filtered_items: Vec::new(),
             loop_list_state: LoopListState::new(0),
+            extract_text_for_confirm: extract_text_for_confirm,
         };
         i.filter();
         i
@@ -47,10 +53,10 @@ impl<'a, T> AutocompleteTextFieldState<'a, T> {
         self.loop_list_state.select_previous();
     }
 
-    pub fn confirm(&mut self, extract_text: fn(&T) -> String) {
+    pub fn confirm(&mut self) {
         if let Some(selected) = self.loop_list_state.list_state().selected() {
             let item = self.filtered_items[selected];
-            let text = extract_text(item);
+            let text = (self.extract_text_for_confirm)(item);
             self.text_field.set_text(text);
         }
     }

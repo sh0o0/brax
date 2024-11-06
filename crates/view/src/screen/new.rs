@@ -120,9 +120,11 @@ impl State {
             impact: LoopListState::new(Impact::COUNT).with_selected(Some(0)),
             start_date: start_date.clone(),
             end_date: TextFieldState::default(),
-            organization: AutocompleteTextFieldState::new(&ORGANIZATIONS, |o, t| {
-                o.to_lowercase().contains(&t.to_lowercase())
-            }),
+            organization: AutocompleteTextFieldState::new(
+                &ORGANIZATIONS,
+                |o, t| o.to_lowercase().contains(&t.to_lowercase()),
+                |o| o.to_string(),
+            ),
             content: "".to_string(),
         }
     }
@@ -157,6 +159,14 @@ impl State {
         if self.should_skip_advanced_fields() {
             self.select_advanced_field();
         }
+    }
+
+    pub fn mode_select(&mut self) {
+        self.is_edit_mode = false;
+    }
+
+    pub fn mode_edit(&mut self) {
+        self.is_edit_mode = true;
     }
 
     fn select_advanced_field(&mut self) {

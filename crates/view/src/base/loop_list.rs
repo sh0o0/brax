@@ -43,7 +43,7 @@ impl LoopListState {
             return;
         }
 
-        self.list_state.select_last();
+        self.list_state.select(Some(self.len - 1));
     }
 
     pub fn select_next(&mut self) {
@@ -53,10 +53,10 @@ impl LoopListState {
         }
 
         match self.list_state.selected() {
-            None => self.list_state.select_first(),
+            None => self.select_first(),
             Some(_) => {
                 if self.is_selecting_last() {
-                    self.list_state.select_first();
+                    self.select_first();
                 } else {
                     self.list_state.select_next();
                 }
@@ -71,10 +71,10 @@ impl LoopListState {
         }
 
         match self.list_state.selected() {
-            None => self.list_state.select_last(),
+            None => self.select_last(),
             Some(_) => {
                 if self.is_selecting_first() {
-                    self.list_state.select_last();
+                    self.select_last();
                 } else {
                     self.list_state.select_previous();
                 }
