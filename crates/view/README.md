@@ -17,8 +17,8 @@ Screen --> Base
 
 ## Tasks
 
-- [ ] Handler
+- [x] Handler
+- [x] Cursor for unicode
 - [ ] Model
 - [ ] Separate widgets to files
 - [ ] Refactor autocomplete
-- [ ] Cursor for unicode

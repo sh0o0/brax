@@ -5,7 +5,7 @@ use ratatui::{
     widgets::{Block, List, ListItem, StatefulWidget, StatefulWidgetRef},
 };
 
-use crate::utils::tui::StatefulDrawer;
+use crate::utils::drawer::StatefulDrawer;
 
 use super::{
     loop_list::LoopListState,

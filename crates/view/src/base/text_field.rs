@@ -8,7 +8,7 @@ use ratatui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use crate::utils::tui::StatefulDrawer;
+use crate::utils::drawer::StatefulDrawer;
 
 #[derive(Debug, Clone)]
 pub struct TextFieldState {

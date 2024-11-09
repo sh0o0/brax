@@ -10,10 +10,8 @@ use crate::{
     },
     config::colors::COLORS,
     utils::{
-        self,
         constant::{TEXT_DOWN_ARROW, TEXT_RIGHT_ARROW},
-        text::Txt,
-        tui::StatefulDrawer,
+        drawer::StatefulDrawer,
     },
 };
 use domain::brag::{Impact, Type};
@@ -220,7 +218,7 @@ impl<'a, 'b> Screen<'a, 'b> {
                 Constraint::Length(3),
                 Constraint::Length(3),
                 match self.state.is_expand_advanced {
-                    true => Constraint::Max(10),
+                    true => Constraint::Max(4),
                     false => Constraint::Length(1),
                 },
                 Constraint::Fill(1),
@@ -233,12 +231,13 @@ impl<'a, 'b> Screen<'a, 'b> {
         self.render_impact(impact_area);
         self.render_start_date(start_date_area);
         self.render_end_date(end_date_area);
-        self.render_advanced(advanced_area);
+        let [organization_area] = self.render_advanced(advanced_area);
         self.render_content(content_area);
         self.render_commands(commands_area);
 
         self.render_typ_popup_if_selecting(typ_area);
         self.render_impact_popup_if_selecting(impact_area);
+        self.render_organizations_popup_if_selecting(organization_area);
     }
 
     fn render_title(&mut self, area: Rect) {
@@ -341,7 +340,7 @@ impl<'a, 'b> Screen<'a, 'b> {
         end_date.draw(self.frame, area, &mut self.state.end_date);
     }
 
-    fn render_advanced(&mut self, area: Rect) {
+    fn render_advanced(&mut self, area: Rect) -> [Rect; 1] {
         let style = match self.state.selecting_field {
             SelectableField::Advanced => Style::default().fg(COLORS.primary),
             _ => Style::default(),
@@ -355,13 +354,13 @@ impl<'a, 'b> Screen<'a, 'b> {
             ))
             .style(style);
             self.frame.render_widget(advanced, area);
-            return;
+            return [Rect::ZERO];
         }
 
         let [advanced_area, fields_area] =
-            Layout::vertical([Constraint::Length(1), Constraint::default()]).areas(area);
+            Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(area);
         let [_, fields_area] =
-            Layout::horizontal([Constraint::Length(1), Constraint::default()]).areas(fields_area);
+            Layout::horizontal([Constraint::Length(1), Constraint::Fill(1)]).areas(fields_area);
 
         let advanced = Paragraph::new(format!(
             "{} {}",
@@ -371,14 +370,14 @@ impl<'a, 'b> Screen<'a, 'b> {
         .style(style);
 
         self.frame.render_widget(advanced, advanced_area);
-        self.render_advanced_fields(fields_area);
+        self.render_advanced_fields(fields_area)
     }
 
-    fn render_advanced_fields(&mut self, area: Rect) {
-        let [organization_area] = Layout::vertical([Constraint::Max(3)]).areas(area);
+    fn render_advanced_fields(&mut self, area: Rect) -> [Rect; 1] {
+        let [organization_area] = Layout::vertical([Constraint::Length(3)]).areas(area);
 
         self.render_organization(organization_area);
-        self.render_organizations_popup_if_selecting(organization_area);
+        [organization_area]
     }
 
     fn render_organization(&mut self, area: Rect) {
@@ -566,7 +565,11 @@ impl<T> AutocompleteTextFieldList<'_, T> {
     }
 }
 
-impl utils::text::Txt for Type {
+trait Txt {
+    fn text(&self) -> String;
+}
+
+impl Txt for Type {
     fn text(&self) -> String {
         match self {
             Type::Project => "Project".to_string(),
@@ -579,7 +582,7 @@ impl utils::text::Txt for Type {
     }
 }
 
-impl utils::text::Txt for Impact {
+impl Txt for Impact {
     fn text(&self) -> String {
         match self {
             Impact::Trivial => "Trivial".to_string(),
