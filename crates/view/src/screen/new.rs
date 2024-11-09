@@ -249,14 +249,14 @@ impl<'a, 'b> Screen<'a, 'b> {
                 if text.is_empty() {
                     return Some("Required".to_string());
                 }
-                if text.len() > 100 {
+                if text.chars().count() > 100 {
                     return Some("Too long".to_string());
                 }
 
                 None
             });
 
-        title.draw(self.frame, area, &mut self.state.title);
+        title.draw_stateful(self.frame, area, &mut self.state.title);
     }
 
     fn render_typ(&mut self, area: Rect) {
@@ -317,7 +317,7 @@ impl<'a, 'b> Screen<'a, 'b> {
                 None
             });
 
-        start_date.draw(self.frame, area, &mut self.state.start_date);
+        start_date.draw_stateful(self.frame, area, &mut self.state.start_date);
     }
 
     fn render_end_date(&mut self, area: Rect) {
@@ -337,7 +337,7 @@ impl<'a, 'b> Screen<'a, 'b> {
                 None
             });
 
-        end_date.draw(self.frame, area, &mut self.state.end_date);
+        end_date.draw_stateful(self.frame, area, &mut self.state.end_date);
     }
 
     fn render_advanced(&mut self, area: Rect) -> [Rect; 1] {
@@ -386,7 +386,7 @@ impl<'a, 'b> Screen<'a, 'b> {
             .block(status.block().title(SelectableField::Organization.title()))
             .style(status.style());
 
-        organization.draw(self.frame, area, &mut self.state.organization);
+        organization.draw_stateful(self.frame, area, &mut self.state.organization);
     }
 
     fn render_content(&mut self, area: Rect) {

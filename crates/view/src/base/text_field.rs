@@ -71,22 +71,6 @@ impl<'a> TextFieldState {
         self.move_cursor_right();
     }
 
-    /// Returns the byte index based on the character position.
-    ///
-    /// Since each character in a string can be contain multiple bytes, it's necessary to calculate
-    /// the byte index based on the index of the character.
-    pub fn byte_index(&self) -> usize {
-        self.text
-            .char_indices()
-            .map(|(i, _)| i)
-            .nth(self.cursor_index)
-            .unwrap_or(self.text.len())
-    }
-
-    pub fn unicode_index(&self) -> usize {
-        self.text[..self.byte_index()].width()
-    }
-
     pub fn delete_left_char(&mut self) {
         self.modify();
 
@@ -124,8 +108,24 @@ impl<'a> TextFieldState {
         self.text = self.text.chars().take(self.cursor_index).collect();
     }
 
-    pub fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
+    fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
         new_cursor_pos.clamp(0, self.text.chars().count())
+    }
+
+    /// Returns the byte index based on the character position.
+    ///
+    /// Since each character in a string can be contain multiple bytes, it's necessary to calculate
+    /// the byte index based on the index of the character.
+    fn byte_index(&self) -> usize {
+        self.text
+            .char_indices()
+            .nth(self.cursor_index)
+            .map(|(i, _)| i)
+            .unwrap_or(self.text.len())
+    }
+
+    fn unicode_index(&self) -> usize {
+        self.text[..self.byte_index()].width()
     }
 
     fn modify(&mut self) {
@@ -135,7 +135,7 @@ impl<'a> TextFieldState {
     }
 }
 
-pub type Validator = fn(String) -> Option<String>;
+pub type Validator = fn(&str) -> Option<String>;
 
 #[derive(Debug, Default)]
 pub struct TextField<'a> {
@@ -174,6 +174,36 @@ impl<'a> TextField<'a> {
         self.style = Some(style);
         self
     }
+
+    // TODO(sh0o0): 日本語がstart、英語が最後になるとカーソルが文字にかぶることがある
+    fn fix_text<'b>(&self, area: Rect, text: &'b str) -> &'b str {
+        // -1 to make space for the cursor
+        let max_width = (self.text_area(area).width as usize).saturating_sub(1);
+        let len = text.width();
+
+        if len > max_width {
+            let start = len - max_width;
+            let mut width = 0;
+            for (i, _) in text.char_indices().skip_while(|(_, c)| {
+                width += c.to_string().width();
+                width < start
+            }) {
+                return &text[i..];
+            }
+            text
+        } else {
+            text
+        }
+    }
+
+    fn text_area(&self, area: Rect) -> Rect {
+        let inner = self.block.clone().unwrap_or_default().inner(area);
+        Rect {
+            // -1 to make space for the cursor
+            width: inner.width.saturating_sub(1),
+            ..inner
+        }
+    }
 }
 
 impl<'a> StatefulWidget for TextField<'a> {
@@ -188,9 +218,11 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
     type State = TextFieldState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let mut paragraph = Paragraph::new(match state.text() {
+        let text = self.fix_text(area, state.text());
+
+        let mut paragraph = Paragraph::new(match text {
             "" => self.helper.clone().unwrap_or_default().dark_gray(),
-            text => text.gray().into(),
+            t => t.gray().into(),
         });
 
         if let Some(style) = &self.style {
@@ -202,10 +234,10 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
             None => Block::default(),
         };
 
+        // validation
         if state.has_modified {
             if let Some(validator) = self.validator {
-                let text = state.text().to_string();
-                let validated_text = validator(text);
+                let validated_text = validator(state.text());
                 match validated_text {
                     Some(validated_text) => {
                         block = block.title_bottom(validated_text.not_bold()).red();
@@ -223,12 +255,14 @@ impl<'a> StatefulWidgetRef for TextField<'a> {
 impl StatefulDrawer for TextField<'_> {
     type State = TextFieldState;
 
-    fn draw(self, frame: &mut Frame, area: Rect, state: &mut Self::State) {
+    fn draw_stateful(self, frame: &mut Frame, area: Rect, state: &mut Self::State) {
+        let text_area = self.text_area(area);
+
         if state.is_editing {
             let cursor_pos = state.unicode_index() as u16;
             let position = Position {
-                x: area.x + cursor_pos + 1,
-                y: area.y + 1,
+                x: (text_area.x + cursor_pos).min(text_area.right()),
+                y: text_area.y,
             };
             frame.set_cursor_position(position);
         }

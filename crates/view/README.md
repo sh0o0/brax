@@ -22,3 +22,8 @@ Screen --> Base
 - [ ] Model
 - [ ] Separate widgets to files
 - [ ] Refactor autocomplete
+- [ ] Re-name state to new state
+- [x] text overflow
+- [ ] Scroll fields
+- [ ] Scroll content
+- [ ] Redesign UI

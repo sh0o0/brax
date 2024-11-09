@@ -7,5 +7,5 @@ pub trait Drawer {
 pub trait StatefulDrawer {
     type State;
 
-    fn draw(self, frame: &mut Frame, area: Rect, state: &mut Self::State);
+    fn draw_stateful(self, frame: &mut Frame, area: Rect, state: &mut Self::State);
 }

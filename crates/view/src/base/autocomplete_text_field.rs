@@ -9,7 +9,7 @@ use crate::utils::drawer::StatefulDrawer;
 
 use super::{
     loop_list::LoopListState,
-    text_field::{TextField, TextFieldState},
+    text_field::{TextField, TextFieldState, Validator},
 };
 
 #[derive(Debug, Clone)]
@@ -138,7 +138,7 @@ impl<'a, T> AutocompleteTextField<'a, T> {
         self
     }
 
-    pub fn validator(mut self, validator: fn(String) -> Option<String>) -> Self {
+    pub fn validator(mut self, validator: Validator) -> Self {
         self.text_field = self.text_field.validator(validator);
         self
     }
@@ -173,8 +173,9 @@ impl<'a, T> StatefulWidgetRef for AutocompleteTextField<'a, T> {
 impl<'a, T> StatefulDrawer for AutocompleteTextField<'a, T> {
     type State = AutocompleteTextFieldState<'a, T>;
 
-    fn draw(self, frame: &mut ratatui::Frame, area: Rect, state: &mut Self::State) {
-        self.text_field.draw(frame, area, &mut state.text_field);
+    fn draw_stateful(self, frame: &mut ratatui::Frame, area: Rect, state: &mut Self::State) {
+        self.text_field
+            .draw_stateful(frame, area, &mut state.text_field);
     }
 }
 
